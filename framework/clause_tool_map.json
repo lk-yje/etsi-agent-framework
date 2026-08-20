@@ -1,0 +1,939 @@
+{
+  "4-1": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": [],
+    "evidence_artifacts": ["ixit.json#/ics"],
+    "preconditions": ["仅审查 ICS 中 R 项的 N/A / 未履行声明及其理由"],
+    "method": "逐项读取 ICS 中被声明为 N/A 或未履行的建议项，检查每项均有具体、可追溯理由；M 项不得以未履行替代适用性判断。该概念性审查不连接 DUT。",
+    "oracle": {
+      "pass": "每项 N/A 或未履行的建议项均有适当理由，且不存在以未履行规避强制项。",
+      "fail": "存在没有理由的 N/A / 未履行建议项，或以未履行规避强制项。",
+      "inconclusive": "ICS 条目或理由字段无法读取，无法逐项确认。"
+    },
+    "manual_boundary": "本条仅评价 ICS 声明和理由的完整性，不替代任何 DUT 功能测试。"
+  },
+  "5.1-1": {
+    "automation": "partial",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_type",
+        "browser_click"
+      ]
+    },
+    "method": "Nmap full-port scan vs IXIT; multi-device password comparison; playwright MCP drive init flow to test password skip/weak-password enforcement"
+  },
+  "5.1-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Compare actual passwords against IXIT generation-mechanism description (length, charset, uniqueness)"
+  },
+  "5.1-3": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_fill_form",
+        "browser_click",
+        "browser_network_requests",
+        "browser_network_request",
+        "browser_evaluate"
+      ]
+    },
+    "method": "Read pcap_analysis TLS version/cipher JSONs; nmap ssl-enum-ciphers; playwright frontend encryption check per frontend-encryption-check.md; compare with IXIT"
+  },
+  "5.1-4": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_fill_form",
+        "browser_click",
+        "browser_evaluate",
+        "browser_network_requests"
+      ]
+    },
+    "method": "Playwright MCP: login → navigate to password-change page → fill old+new+confirm → submit → verify POST 200 → logout → verify new password works and old password fails"
+  },
+  "5.1-5": {
+    "script": "python scripts/login_lockout_probe.py {workspace} --target={dut_ip}",
+    "automation": "partial",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [
+        "intruder_send"
+      ],
+      "playwright_mcp": []
+    },
+    "method": "Nmap full-port scan to confirm auth interfaces; Burp Intruder replay login requests (encrypted or plaintext payload); observe lockout threshold and duration vs IXIT declaration; 1-2 failed probes only, full lockout test marked manual"
+  },
+  "5.2-1": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl anonymous access to vulnerability disclosure page; check: (1) contact info present (2) acknowledgement timeline (3) status-update timeline"
+  },
+  "5.2-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["2-UserInfo", "3-VulnTypes", "4-Conf"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/2-UserInfo", "ixit.json#/ixit_tables/3-VulnTypes", "ixit.json#/ixit_tables/4-Conf"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "从 3-VulnTypes 逐类提取披露漏洞的 Action 和 Time Frame，并回查 2-UserInfo 的漏洞披露政策；检查两者是否共同支持及时处理，再核对 4-Conf 的漏洞行动确认。对严重性、漏洞类型、第三方依赖和责任分工只能依据 IXIT 已声明信息判定。",
+    "oracle": {
+      "pass": "每类适用漏洞均有与披露政策一致的行动与时间框架，且 4-Conf 明确确认执行。",
+      "fail": "IXIT 明确显示某类披露漏洞没有行动/时限，政策与流程矛盾，或确认未执行。",
+      "inconclusive": "缺少某类漏洞的行动、时间框架、责任分工或确认信息。"
+    },
+    "manual_boundary": "不以离线文档代替真实漏洞处置时效；90 天或例外的真实履约记录由真机/文档 UAT 另行取证。"
+  },
+  "5.2-3": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["5-VulnMon", "4-Conf"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/5-VulnMon", "ixit.json#/ixit_tables/4-Conf"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "从 5-VulnMon 分别提取持续监测、影响识别和修复/缓解方法，检查是否形成面向 DUT 的闭环；再核对 4-Conf 的漏洞监控确认。不得把单一公告订阅或“定期关注”文字视为持续监测闭环。",
+    "oracle": {
+      "pass": "IXIT 明确描述了持续收集、判定对 DUT 的影响、纠正/缓解三个环节，并确认已实施。",
+      "fail": "IXIT 明确缺少任一闭环环节，或描述表明不会对影响 DUT 的漏洞采取纠正措施。",
+      "inconclusive": "监测、影响识别、修复任一项描述不足，或缺少实施确认。"
+    },
+    "manual_boundary": "不能在无持续观察期时证明流程实际持续运行；只裁决 IXIT 所述机制与确认，运行记录需后续审计取证。"
+  },
+  "5.3-1": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Python extract IXIT JSON → iterate 6-SoftComp mechanisms → aggregate evidence (5.3-2-2 direct + 5.3-9/5.3-10 indirect + observation) → LLM per-mechanism judgment on abuse potential"
+  },
+  "5.3-2": {
+    "pre_script": "python skills/etsi-env-check/scripts/tamper_firmware.py {firmware_src} {workspace}/tampered",
+    "script": "python scripts/tls_downgrade_test.py {workspace} --target={dut_ip}",
+    "automation": "full",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [
+        "burp_import_project_config",
+        "proxy_history",
+        "proxy_websocket_history",
+        "websocket_list",
+        "websocket_get_messages"
+      ],
+      "playwright_mcp": []
+    },
+    "method": "(1) TLS downgrade MITM: burp_import_project_config with custom_tls_protocols=[TLSv1,TLSv1.1] + enable_http2=false → trigger DUT update → observe if weak TLS accepted → restore config. (2) Firmware tampering: Burp proxy hijack update request; upload old/tampered firmware → verify rejection; interrupt transfer → verify recovery. WebSocket flow: proxy_history find /updateFirmware + status 101 → websocket_list → websocket_get_messages direction=server_to_client max_results<=20"
+  },
+  "5.3-3": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["6-SoftComp", "7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/6-SoftComp", "ixit.json#/ixit_tables/7-UpdMech"],
+    "preconditions": ["ICS 声明该软件组件/更新机制适用"],
+    "method": "从 ICS.required_ixit_entries、6-SoftComp 与 7-UpdMech 按组件建立更新机制清单；逐组件检查至少一条更新路径、用户可识别的操作入口和 IXIT 描述是否自洽。机制未登记、描述无法说明如何更新或组件无更新路径 → FAIL；缺少组件—机制对应关系或可用性细节 → INCONCLUSIVE。",
+    "oracle": {
+      "pass": "每个声明的软件组件至少有一条已登记、用户可理解的更新机制。",
+      "fail": "任一声明组件没有更新机制，或 IXIT 描述彼此矛盾。",
+      "inconclusive": "IXIT 未提供组件与更新机制的对应关系或操作可用性信息。"
+    },
+    "manual_boundary": "不在无真机时断言更新 UI 实际可用；真机阶段由用户在 Traffic 操作窗确认更新入口可访问。"
+  },
+  "5.3-4": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": ["browser_navigate", "browser_snapshot"]
+    },
+    "ixit_tables": ["6-SoftComp", "7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/7-UpdMech", "playwright snapshot of update settings"],
+    "preconditions": ["ICS C 条件适用", "DUT 声明支持自动更新"],
+    "method": "先从 ICS 与 7-UpdMech 判断是否支持自动更新；不支持则记录前提不满足并标 N/A。支持时，检查每个组件至少存在一种无需用户交互的检查/更新机制，并用 Playwright snapshot 复核更新设置页的自动检查或自动安装状态；可配置时默认至少启用一种自动机制。",
+    "oracle": {
+      "pass": "支持自动更新时，每个组件均有自动检查/更新机制；可配置机制至少一种默认启用。",
+      "fail": "支持自动更新但存在组件无自动机制，或所有可配置自动机制默认关闭。",
+      "inconclusive": "无法从 IXIT 或 UI 确认组件覆盖或默认状态。"
+    },
+    "manual_boundary": "不得通过点击保存或实际升级来证明结论；只读取设置，变更测试需用户明确授权。"
+  },
+  "5.3-5": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": ["proxy_history"],
+      "playwright_mcp": ["browser_navigate", "browser_snapshot"]
+    },
+    "ixit_tables": ["7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/7-UpdMech", "Burp update-check request index", "Playwright update settings snapshot"],
+    "preconditions": ["ICS C 条件适用", "DUT 支持检查安全更新"],
+    "method": "从 7-UpdMech 提取检查触发者、初始化后行为与周期；Traffic 操作窗触发一次“检查更新”，用 Burp history 索引该请求并在 UI snapshot 中复核设置。DUT 自触发、初始化后检查且有周期说明才可 PASS；只有用户手动检查、缺少周期或没有可索引请求时不得补写为 PASS。",
+    "oracle": {
+      "pass": "DUT 自行触发检查，初始化后执行，并有明确周期。",
+      "fail": "IXIT 或实测明确表明检查仅能人工触发，或初始化后不会检查。",
+      "inconclusive": "周期或初始化后行为未说明，或本次未捕获更新检查请求。"
+    },
+    "manual_boundary": "单次 Traffic 捕获不能证明“定期”；周期的实测验证需跨周期观察，当前仅记录为后续真机 UAT。"
+  },
+  "5.3-7": {
+    "automation": "full",
+    "tools": {
+      "bash": ["nmap"],
+      "burp_mcp": ["proxy_history"],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["7-UpdMech", "11-ComMech", "12-NetSecImpl"],
+    "evidence_artifacts": ["pcap_analysis/5.5-1_server_hello.json", "pcap_analysis/5.5-1_proto_hierarchy.txt", "nmap ssl-enum-ciphers output", "Burp update request index"],
+    "preconditions": ["Traffic 操作窗实际触发更新检查或更新下载", "pcap_analysis 可用"],
+    "method": "从 Burp history 定位更新相关流量；读取 pcap 的 ServerHello/协议分层，并以 nmap ssl-enum-ciphers 佐证 DUT 支持值；逐项比对 7-UpdMech/11-ComMech/12-NetSecImpl 声明的 TLS 版本、密码套件、证书和签名算法。元数据查询或普通 Web 页面 TLS 不能替代更新载荷证据。",
+    "oracle": {
+      "pass": "已索引的更新流量使用与 IXIT 一致、无已知可行攻击的加密细节。",
+      "fail": "更新载荷明文、弱 TLS/密码套件/签名算法，或与 IXIT 声明矛盾。",
+      "inconclusive": "本次未捕获实际更新相关载荷，无法将 TLS 握手归属到更新机制。"
+    },
+    "manual_boundary": "禁止用单纯更新元数据查询替代固件/更新载荷传输。"
+  },
+  "5.3-8": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["6-SoftComp", "7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/6-SoftComp", "ixit.json#/ixit_tables/7-UpdMech"],
+    "preconditions": ["ICS 声明软件组件可更新"],
+    "method": "按组件读取更新机制、部署通道与确认机制；概念性判断管理程序是否允许及时部署安全更新并确认执行。仅有“支持升级”但未说明部署路径、时效或确认机制时标 INCONCLUSIVE。",
+    "oracle": {
+      "pass": "每个适用组件的更新管理程序说明了可及时部署和执行确认机制。",
+      "fail": "IXIT 明确表明组件无法部署安全更新或没有确认执行能力。",
+      "inconclusive": "缺少时效、部署或确认执行的关键描述。"
+    },
+    "manual_boundary": "“及时”需要真实安全更新时序数据；无该数据时不得仅凭宣传文字判 PASS。"
+  },
+  "5.3-11": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": ["proxy_history"],
+      "playwright_mcp": ["browser_navigate", "browser_snapshot"]
+    },
+    "ixit_tables": ["7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/7-UpdMech", "Playwright notification/settings snapshot", "Burp update-check request index"],
+    "preconditions": ["ICS C(12) 条件适用", "DUT 存在自动更新检查或待通知场景"],
+    "method": "先判定是否存在自动检查更新的前提；前提不成立且 ICS 为 N/A 时标 N/A。前提成立时，读取 7-UpdMech 的通知描述，并用 UI snapshot 复核通知入口/设置；通知必须可识别、明显，且含所减轻安全风险的信息。“用户可手动检查”不构成通知。",
+    "oracle": {
+      "pass": "通知清晰可见，并包含更新缓解的安全风险信息。",
+      "fail": "存在待通知场景但没有通知机制，或通知仅报版本、不含风险信息。",
+      "inconclusive": "无法确定是否存在待通知场景，或通知内容未在 IXIT/UI 中披露。"
+    },
+    "manual_boundary": "实际推送通知事件需要真实更新发布或受控模拟；本次不伪造通知。"
+  },
+  "5.3-12": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": ["proxy_history"],
+      "playwright_mcp": ["browser_navigate", "browser_snapshot"]
+    },
+    "ixit_tables": ["7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ics", "ixit.json#/ixit_tables/7-UpdMech", "Playwright update warning snapshot", "Burp update request index"],
+    "preconditions": ["更新过程可能中断基本功能"],
+    "method": "从 7-UpdMech 判断更新是否会中断基本功能；若明确不会中断，则按 escape clause 标 PASS 并引用该字段。若会中断，读取/抓取 UI 中的中断提示，检查提示是否在 DUT 上可见且明确告知基本功能中断。",
+    "oracle": {
+      "pass": "更新不影响基本功能，或影响时 DUT 上有明确的中断通知。",
+      "fail": "更新会中断基本功能且没有 DUT 侧通知。",
+      "inconclusive": "无法判断更新是否影响基本功能，或未能索引提示内容。"
+    },
+    "manual_boundary": "不得在未经用户确认的真机上实际中断业务功能；需要用户在 Traffic 操作窗观察并确认。"
+  },
+  "5.3-6": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_click"
+      ]
+    },
+    "method": "Playwright MCP: login → navigate to system maintenance / firmware upgrade page → browser_snapshot to find auto-update toggles (auto-check/auto-download/auto-install/notify-new-version) → record each toggle default state (ON/OFF) → browser_click to toggle → verify modifiable"
+  },
+  "5.3-9": {
+    "pre_script": "python skills/etsi-env-check/scripts/tamper_firmware.py {firmware_src} {workspace}/tampered",
+    "script": "python scripts/firmware_traffic_verify.py {workspace} --target={dut_ip}",
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [
+        "proxy_history",
+        "websocket_get_messages"
+      ],
+      "playwright_mcp": []
+    },
+    "method": "Upload tampered firmware → observe rejection; offline verification. Firmware upload traffic query: Burp proxy_history → WebSocket → websocket_get_messages direction=server_to_client max_results<=20"
+  },
+  "5.3-10": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Verify update trust relationship: IXIT document analysis for mTLS/Token/user-confirmation auth-entity verification; Nmap full-port scan for hidden update interfaces → compare with IXIT 7-UpdMech"
+  },
+  "5.3-13": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access public notice page → check: (1) accessible (2) no registration required (3) support period published"
+  },
+  "5.3-14": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access page → check: (1) reason stated (2) replacement plan (3) timeline (4) no registration required"
+  },
+  "5.3-15": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Disconnect network → verify local functionality; isolated environment; hardware replacement operations"
+  },
+  "5.3-16": {
+    "automation": "partial",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot"
+      ]
+    },
+    "method": "Playwright MCP: browser_navigate DUT Web UI homepage/system info → browser_snapshot extract device model → compare with nmap HTTP title/SSL cert CN → compare with IXIT model declaration. Output three-column comparison table: Web UI | nmap | IXIT → consistent = PASS"
+  },
+  "5.4-1": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "CH341 Flash reader → Binwalk unpack → search for sensitive parameter storage format (plaintext passwords/keys)"
+  },
+  "5.4-2": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Multi-channel read hardware ID → software tampering attempt → full-device flash overwrite; check if SN modifiable via Web"
+  },
+  "5.4-3": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Firmware reverse engineering → search hardcoded key patterns → multi-device comparison for identical keys"
+  },
+  "5.4-4": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Export same-type keys from multiple devices → compare → confirm each device has unique keys"
+  },
+  "5.5-1": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_fill_form",
+        "browser_click",
+        "browser_network_requests",
+        "browser_network_request",
+        "browser_evaluate"
+      ]
+    },
+    "method": "Read pcap_analysis JSONs (server_hello, client_hello, proto_hierarchy, conversations, http_check, http_responses); nmap ssl-enum-ciphers; playwright MCP frontend encryption check per frontend-encryption-check.md; downgrade attack testing; compare with IXIT"
+  },
+  "5.5-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Python extract IXIT 12-NetSecImpl Review/Evaluation Method + Report → output filled/unfilled list → if Report is URL, curl verify reachability → manual review of assessment evidence coverage + DUT version vs Report consistency"
+  },
+  "5.5-3": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["6-SoftComp", "7-UpdMech"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/6-SoftComp", "ixit.json#/ixit_tables/7-UpdMech"],
+    "preconditions": ["IXIT 6-SoftComp 中存在 Cryptographic Usage 软件组件"],
+    "method": "筛出 6-SoftComp 中标记 Cryptographic Usage 的每个组件，逐一索引其 Update Mechanism，并检查厂商是否记录算法/原语升级后的兼容性、副作用或迁移处理。加密组件随已受控的固件更新可整体更新可作为机制佐证，但不能推断实际已完成算法迁移。",
+    "oracle": {
+      "pass": "每个密码学组件均有可追溯的更新机制，并说明算法/原语更新的副作用或兼容性处理。",
+      "fail": "任一密码学组件明确不可更新，或 IXIT 明确未考虑升级带来的兼容性/安全影响。",
+      "inconclusive": "无法把密码学组件关联到更新机制，或没有算法更新副作用的信息。"
+    },
+    "manual_boundary": "不主动替换算法或固件；真实 crypto-agility 需受控升级样本和回归验证，留给真机 UAT。"
+  },
+  "5.5-4": {
+    "workflow": "auth-diff-workflow.md",
+    "automation": "full",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [
+        "auth_diff",
+        "proxy_latest_auth",
+        "auth_scan_endpoints"
+      ],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_fill_form",
+        "browser_click",
+        "browser_network_requests",
+        "browser_network_request",
+        "browser_evaluate"
+      ]
+    },
+    "method": "(1) Auth control: 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取双头(Cookie+SessionTag 或启发式认证头, 同帧避免配对错)→ auth_diff 全端点 authenticated vs none。auth_diff 新参数: headers:[{name,value}] 多头数组(替代单头 header_name/header_value); device_hint:\"isapi\" 开启双头校验(base 有 SessionTag 且 level 无 Cookie → AUTH_DIFF_DUAL_HEADER_REQUIRED); preserve_headers 逃生舱(保留认证头不剥); 输出含 auth_headers_stripped 明示剥头。none returns 200+body match = FAIL, 401/403 = PASS. (2) Encryption verification: playwright MCP frontend encryption analysis (same as 5.1-3 flow) + pcap_analysis server_hello TLS cipher/cert vs IXIT comparison. Both PASS → 5.5-4-2 PASS"
+  },
+  "5.5-5": {
+    "workflow": "auth-diff-workflow.md",
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [
+        "auth_diff",
+        "proxy_latest_auth",
+        "auth_scan_endpoints"
+      ],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_fill_form",
+        "browser_click",
+        "browser_network_requests",
+        "browser_network_request",
+        "browser_evaluate"
+      ]
+    },
+    "method": "A+B+Port: (1) 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取认证头→ auth_diff 全端点 admin vs none(evidence A, per auth-diff-workflow.md)。auth_diff 新参数: headers 多头数组 + device_hint:\"isapi\" 双头校验 + preserve_headers 逃生舱 + auth_headers_stripped 明示。(2) Frontend encryption logic vs IXIT consistency (evidence B, per frontend-encryption-check.md) (3) nmap full-port vs IXIT 15-Intf. All three PASS → 5.5-5-2 PASS"
+  },
+  "5.5-6": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["10-SecParam", "11-ComMech", "12-NetSecImpl"],
+    "evidence_artifacts": ["pcap_analysis/5.5-6_dut_outbound.json", "pcap_analysis/5.5-6_non_tls.json", "pcap_analysis/5.5-6_http_outbound.json", "pcap_analysis/5.5-6_tls_appdata.json", "pcap_analysis/5.5-6_sensitive_keywords.json"],
+    "preconditions": ["Traffic 已捕获与关键安全参数相关的 DUT 通信"],
+    "method": "从 10-SecParam 索引关键安全参数及其 11-ComMech 通信机制，读取 pcap 的 DUT 外连、非 TLS、HTTP 明文、TLS 应用数据和敏感关键字结果；将每条实际通信归属到 IXIT 机制后，再比对机密性与加密细节。零外连不等于没有关键安全参数通信。",
+    "oracle": {
+      "pass": "每个已捕获的关键安全参数通信均有与 IXIT 一致、满足机密性的加密保护。",
+      "fail": "关键安全参数在 HTTP/非 TLS 明文传输，或实际加密设置与 IXIT 矛盾。",
+      "inconclusive": "没有捕获可归属的关键安全参数通信，或 IXIT 未建立参数—通信机制关联。"
+    },
+    "manual_boundary": "需用户在 Traffic 窗口实际触发相关认证/更新流程；仅凭无外连结果不得判 PASS。"
+  },
+  "5.5-7": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["10-SecParam", "11-ComMech", "12-NetSecImpl"],
+    "evidence_artifacts": ["pcap_analysis/5.5-7_remote_ips.json", "pcap_analysis/5.5-7_all_destinations.json", "pcap_analysis/5.5-6_non_tls.json"],
+    "preconditions": ["ICS C(19) 适用，且 Traffic 捕获到远程可访问接口的关键安全参数通信"],
+    "method": "从 10-SecParam 与 11-ComMech 筛选远程可访问的关键安全参数通信，读取 remote_ips/all_destinations 和非 TLS 分析结果；将远程地址、协议和 TLS 细节与 IXIT 声明逐项关联。没有远程 CSP 通信才可 N/A，不能只因 remote_ips 为空就推断。",
+    "oracle": {
+      "pass": "每个已捕获的远程关键安全参数通信均满足机密性，且与 IXIT 加密声明一致。",
+      "fail": "远程关键安全参数通过明文/弱保护传输，或实测与 IXIT 不一致。",
+      "inconclusive": "无法判定捕获流量是否含关键安全参数，或未获得足够远程通信样本。"
+    },
+    "manual_boundary": "云端/远程 App 通信需在真机 Traffic 阶段实际触发；不将测试机自身流量混入 DUT 证据。"
+  },
+  "5.5-8": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["14-SecMgmt", "4-Conf"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/14-SecMgmt", "ixit.json#/ixit_tables/4-Conf"],
+    "preconditions": ["ICS C(20) 适用，DUT 存在关键安全参数"],
+    "method": "从 14-SecMgmt 对每类关键安全参数核对生成、分发、存储、更新、停用/归档/销毁及过期/泄露处理，再核对 4-Conf 的安全管理确认。生命周期缺口必须逐项报告，不能用“有密钥管理”笼统判定。",
+    "oracle": {
+      "pass": "安全管理覆盖每类适用关键安全参数的全生命周期，并确认已执行。",
+      "fail": "IXIT 明确缺少生命周期关键环节，或确认未执行。",
+      "inconclusive": "无法确定参数类别或任一生命周期环节描述不足。"
+    },
+    "manual_boundary": "密钥实际轮换、销毁和泄露处置需制造商记录或受控真机验证；本阶段只评价可索引的 IXIT 声明。"
+  },
+  "5.6-1": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "nmap"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Nmap full-port scan → compare with IXIT 15-Intf Enable/Disable status"
+  },
+  "5.6-2": {
+    "script": "python scripts/dir_brute_force.py {workspace} --target={dut_ip}",
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "ncat",
+        "curl"
+      ],
+      "burp_mcp": [
+        "http_fuzz"
+      ],
+      "playwright_mcp": []
+    },
+    "method": "Read pcap_analysis JSONs: broadcast.json (broadcast/multicast traffic → info-leak channels), plaintext_services.json (non-TLS non-HTTP TCP plaintext banners → version/SN leak); ncat banner collection; curl unauthenticated paths; Burp directory brute force"
+  },
+  "5.6-3": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Four checks: (1) visual check exposed physical interfaces vs IXIT (2) UART/JTAG debug interface protection (3) rfkill/iwconfig wireless interface check (4) intermittent/sleep interfaces disabled when not needed"
+  },
+  "5.6-4": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Connect cables to exposed interfaces + test debug tools on other interfaces; check if debug interfaces are functional"
+  },
+  "5.6-5": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "netstat"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "netstat list listening services → compare with IXIT 13-SoftServ for unexpected default services"
+  },
+  "5.6-6": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["16-CodeMin"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/16-CodeMin"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "提取 16-CodeMin 中全部代码最小化技术，按“减少到设备必需功能”的目标检查其适用范围、实施方式与是否覆盖未使用/不需要代码。只可评价声明的技术逻辑，不能从网络扫描结果推断二进制中不存在死代码。",
+    "oracle": {
+      "pass": "IXIT 的代码最小化机制具体且适合减少到 DUT 必需功能。",
+      "fail": "IXIT 明确保留不需要的功能/死代码，或所述做法与代码最小化目标矛盾。",
+      "inconclusive": "16-CodeMin 为空、泛泛而谈，或无法判断技术如何减少不必要代码。"
+    },
+    "manual_boundary": "死代码和编译选项的实际验证需要固件/SBOM/构建证据；本阶段不做固件逆向或源码审计。"
+  },
+  "5.6-7": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["17-PrivlCtrl"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/17-PrivlCtrl"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "逐项读取 17-PrivlCtrl 的软件权限控制机制，评估其是否共同支持职责分离、知其所需与最小权限；明确把特权进程、非特权服务、隔离/能力限制等描述关联到对应组件。不得以“需要 root”一语自动判 FAIL，必须看是否有最小化限制。",
+    "oracle": {
+      "pass": "声明的权限控制机制共同促进职责分离、需知和最小权限。",
+      "fail": "IXIT 明确显示网络/普通组件不受限制地以最高权限运行，且不存在控制机制。",
+      "inconclusive": "缺少组件—权限—限制机制映射，无法评价最小化程度。"
+    },
+    "manual_boundary": "真实进程 UID、capabilities、LSM/沙箱配置需设备 shell 或制造商构建证据；无该授权不模拟提权。"
+  },
+  "5.6-8": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["18-AccCtrl"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/18-AccCtrl"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "读取 18-AccCtrl 中每个内存访问控制机制，分别判断其是否在硬件层实现（包括嵌入硬件的固件）以及是否能控制内存访问；将 MMU/MPU/NX/TEE 等机制与其控制对象和边界明确关联。",
+    "oracle": {
+      "pass": "每个声明机制均说明硬件层实现，并能控制对内存的访问。",
+      "fail": "IXIT 明确表明没有硬件级内存访问控制，或所列机制不能控制内存访问。",
+      "inconclusive": "机制层级、控制对象或访问控制效果未说明。"
+    },
+    "manual_boundary": "不以网络接口行为替代硬件机制验证；需要芯片资料、固件配置或受控调试接口时转人工/供应商证据。"
+  },
+  "5.6-9": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["19-SecDev", "4-Conf"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/19-SecDev", "ixit.json#/ixit_tables/4-Conf"],
+    "preconditions": ["ICS 声明 R-should 条款适用，或给出不适用的正当理由"],
+    "method": "按 19-SecDev 的流程核对安全培训、需求/设计、安全编码、实现工具、安全测试、安全审查、资产归档、安全部署，以及适用时第三方供应商处理；再核对 4-Conf 的安全开发确认。逐项标注已声明、明确缺失或描述不足，不能把一份政策标题当作覆盖全部阶段。",
+    "oracle": {
+      "pass": "安全开发流程覆盖全部适用阶段，并有安全开发确认。",
+      "fail": "IXIT 明确缺失任何适用的必需阶段，或确认表明未实施。",
+      "inconclusive": "流程仅为笼统声明、无法覆盖阶段，或缺少确认信息。"
+    },
+    "manual_boundary": "不能用 IXIT 替代源码审查、CI 记录或供应链审计；这些是制造商证据审查项，不对 DUT 执行攻击性验证。"
+  },
+  "5.7-1": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Tamper system firmware partition → power on → observe if boot is rejected; tampered firmware should not boot normally"
+  },
+  "5.7-2": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Corrupt system image → reboot → observe alert + network isolation; should alert and not connect normally"
+  },
+  "5.8-1": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["21-PersData", "11-ComMech", "12-NetSecImpl"],
+    "evidence_artifacts": ["pcap_analysis/5.5-1_server_hello.json", "pcap_analysis/5.5-1_proto_hierarchy.txt", "pcap_analysis/5.5-1_http_check.json"],
+    "preconditions": ["ICS C(21) 适用，Traffic 已触发个人数据在设备与服务间传输"],
+    "method": "从 21-PersData 逐类索引个人数据及引用的 11-ComMech，复用 5.5-1 的 TLS/明文证据并比对 12-NetSecImpl；必须证明所捕获通信确实承载对应个人数据，不能将普通流配置参数或无关 Web 流量当作个人数据证据。",
+    "oracle": {
+      "pass": "每类已触发个人数据的通信均有与 IXIT 一致、满足机密性的保护。",
+      "fail": "个人数据被明确识别于未保护/不一致的通信中。",
+      "inconclusive": "没有触发或无法将捕获流量关联到个人数据类别。"
+    },
+    "manual_boundary": "人脸、邮箱、POS 或视频业务等数据触发需要用户在 Traffic 窗口操作；无业务样本不得推断 PASS。"
+  },
+  "5.8-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "IXIT 21-PersData per-category verification: (1) conceptual assessment of encryption algorithm security (AES/TLS/SHA256 known-feasible-attack check) (2) functional verification per-category data transmission encryption: read pcap_analysis proto_hierarchy.txt + server_hello.json (confirm encryption layer covers corresponding protocol, not stream config metadata). Stream channel config params (codec/resolution/bitrate) are NOT sensitive personal data. No actual business triggered (email/face/POS, RTP video) → INCONCLUSIVE"
+  },
+  "5.8-3": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access sensor documentation → readability assessment → visual sensor inspection"
+  },
+  "5.9-1": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Manual network disconnect → manual power off → verify recovery behavior"
+  },
+  "5.9-2": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Disconnect network 10 minutes → verify local functionality; power-cycle → verify configuration retained; data loss without re-transmission = FAIL"
+  },
+  "5.9-3": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["11-ComMech"],
+    "evidence_artifacts": ["pcap_analysis/5.9-3_syn_bursts.json", "pcap_analysis/5.9-3_syn_timestamps.json", "pcap_analysis/5.9-3_retransmissions.json"],
+    "preconditions": ["Traffic 捕获包含至少一次 DUT 断连/重连或 IXIT 声明的弹性措施行为"],
+    "method": "对 11-ComMech 的每种通信机制读取 Resilience Measures，再读取 SYN 突发、时间间隔和重传分析；检查有序连接和防止大规模同步重连的证据是否与 IXIT 一致。普通稳定通信中的无 SYN 突发不能证明断连后的回退策略。",
+    "oracle": {
+      "pass": "已观察的连接/重连行为与声明的有序连接和稳定网络措施一致，且无密集同步重连迹象。",
+      "fail": "捕获到无延迟密集重连/异常 SYN 突发，或实测与声明的弹性措施矛盾。",
+      "inconclusive": "未发生可评价的重连场景，或 IXIT 未说明通信机制的弹性措施。"
+    },
+    "manual_boundary": "大规模或故障注入式重连测试会影响服务；需获得真机 UAT 授权后再执行。"
+  },
+  "5.10": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Conceptual test (5.10-1-1): 对 IXIT-24-TelData 声明的每次\"安全检查\"，评估 IXIT\"说明\"中的遥测数据是否适合所述安全检查，并检查数据是否存在安全异常。纯概念性评估，无需工具；IXIT 无遥测数据(C(7) 逃生) → N/A。"
+  },
+  "5.11-1": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Create device data → execute erase → reboot verify → Flash read for residual data; data residue after erase = FAIL"
+  },
+  "5.11-2": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Create data on cloud platform → unbind/deregister → check cloud-side residual data"
+  },
+  "5.11-3": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Execute deletion per documentation → evaluate document coverage + clarity/conciseness"
+  },
+  "5.11-4": {
+    "automation": "manual",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Execute deletion → check for deletion confirmation notification; no confirmation = FAIL"
+  },
+  "5.12-1": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": [
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_click"
+      ]
+    },
+    "method": "Playwright MCP: login → click Configuration Wizard (or factory-reset init flow) → per-page browser_snapshot to extract each decision point → check: (1) default pre-checked boxes? (2) terminology understandable? (3) Skip button present? (4) privacy/TOS links available? → compare with IXIT 26-UserDec"
+  },
+  "5.12-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Configure DUT per security settings documentation → check security decision coverage"
+  },
+  "5.12-3": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access manufacturer documentation → check if security configuration self-check guidance provided (checklist items / auto-check tools / security status indicators)"
+  },
+  "5.13-1": {
+    "script": "python scripts/sqli_probe.py {workspace} --target={dut_ip} --endpoints={workspace}/sqlmap_manifest.json",
+    "workflow": "web-sqli.md",
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "sqlmap",
+        "xray",
+        "nmap",
+        "python"
+      ],
+      "burp_mcp": [
+        "proxy_latest_auth",
+        "sqlmap_targets",
+        "sqlmap_bridge_run",
+        "sqlmap_batch_run",
+        "sqlmap_bypass_retry",
+        "sitemap_query",
+        "http_fuzz",
+        "repeater_send"
+      ],
+      "playwright_mcp": []
+    },
+    "method": "先调 mcp__burp__proxy_latest_auth{host:<DUT>} 一步拿最新认证头(扩展内真频率分析选帧 + 同帧提取 tokens{cookie,session_tag,authorization} + auth_headers_detected + live GET 验证, verify.valid=true 即有效; 换认证头名的设备也能被启发式发现)。不再用 session_ensure.py 两步法。再调 mcp__burp__sqlmap_targets{host:<DUT>, auth_headers:{...proxy_latest_auth tokens}} 批量筛 sqlmap 可扫端点(扩展内 sitemap 采集 → 静态/preauth/404/空过滤 → (method,path) 去重 → 参数提取+打分 HIGH/SKIP → live 动态预检改值响应变化→提升 HIGH → 输出 sqlmap_manifest.json, 每端点带已注入新认证头的 request 原文)。认证头注入以下测试 → (1) Path discovery: python scripts/dir_brute_force.py {workspace} --target=<DUT> --label=5.13-1 生成 mcp__burp__http_fuzz 顶层路径爆破指令 (内置 IoT/Web 词表, 经 Burp 代理认证天然带), 非 404 命中 → --ingest 筛 hits, 目录型命中 → --base=<path> 递归子路径深挖 + sitemap_query API endpoint extraction (auto-deduplicated). (2) Parameter injection: http_fuzz on discovered endpoints with FUZZ markers for SQLi/XSS/command payloads in params/Cookie/Body (基于 manifest.request 原文, 已带认证头). (3) Deep injection: sqlmap 三工具族 per web-sqli.md: sqli_probe.py 消费 sqlmap_manifest.json 把 request 原文写 -r 请求文件并输出 bridge_calls[]/batch_calls[]/bypass_calls[] → 单端点快扫 mcp__burp__sqlmap_bridge_run{workspace, endpoint_id:<seq>, mode:quick}；多端点批量 mcp__burp__sqlmap_batch_run{endpoint_ids:1,2,3, mode:quick, escalate:true, batch_delay_ms} 一批全跑+quick→deep 自动升级+限速；WAF/时间盲注疑似被拦端 → mcp__burp__sqlmap_bypass_retry{endpoint_id, max_attempts} 沿 tamper 链(space2comment→between→charencode→…)迭代绕过, 每次尝试追加 sqlmap/block_ledger.jsonl。三工具统一带内置 auth 刷新(auth_refresh=true: 401/403 信号 → proxy_latest_auth 重取头 → 重写 .req → 重跑, 免手工预检)与四态 triage(confirmed/clean/suspect/blocked)。扩展内复刻 sqlmap4burp++ 启动逻辑: 读 manifest request → 写 .req → 同步跑 sqlmap --output-dir → 解析 sqlmap 自身日志回态, 注入点 payload 取自日志 → status:found/confirmed 再 mode:deep 深扫 → 注入点证据进 evidence_M5 → Burp Repeater 复核; 数据提取(--dbs/--tables/--dump)由 M5 agent 协调直调 sqlmap。 (4) Broad review: xray passive scan + nmap port vs API comparison. http_fuzz 路径爆破空 (dir_brute_force.py hits=0) + sitemap no DUT entries → INCONCLUSIVE"
+  },
+  "6-1": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access personal data documentation → content completeness + readability"
+  },
+  "6-2": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Walk through consent flow: verify free + conspicuous + explicit consent; pre-checked boxes / default consent = FAIL"
+  },
+  "6-3": {
+    "automation": "partial",
+    "tools": {
+      "bash": [],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "Walk through consent withdrawal flow → verify consistency with IXIT; account deletion ≠ authorization revocation"
+  },
+  "6-4": {
+    "automation": "partial",
+    "tools": {
+      "bash": ["python"],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "ixit_tables": ["24-TelData", "21-PersData"],
+    "evidence_artifacts": ["ixit.json#/ixit_tables/24-TelData", "ixit.json#/ixit_tables/21-PersData"],
+    "preconditions": ["ICS C(6) 适用，DUT 收集遥测数据"],
+    "method": "逐项读取 24-TelData 的遥测数据、处理目的及其引用的 21-PersData 个人数据，判断该数据是否为实现所述预期功能所必需；必须对每种遥测数据单独给出目的—必要性关系，不能用“改进体验/用于分析”等泛化目的直接判 PASS。",
+    "oracle": {
+      "pass": "每项遥测数据均有明确预期功能，且该处理对实现该功能是必要的。",
+      "fail": "IXIT 明确显示遥测数据与所述功能无关、超出必要范围，或用途自相矛盾。",
+      "inconclusive": "缺少数据项、目的或必要性论证，无法逐项判断。"
+    },
+    "manual_boundary": "真实遥测流量只能佐证收集范围，不能单独证明业务必要性；隐私/产品负责人需确认必要性判断。"
+  },
+  "6-5": {
+    "automation": "full",
+    "tools": {
+      "bash": [
+        "curl"
+      ],
+      "burp_mcp": [],
+      "playwright_mcp": []
+    },
+    "method": "curl access telemetry documentation → content completeness check"
+  }
+}

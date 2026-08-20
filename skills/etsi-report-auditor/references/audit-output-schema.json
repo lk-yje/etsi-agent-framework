@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ETSI Audit Result — Pipeline Runtime Contract",
+  "description": "审计 Agent 的运行时 JSON 合约。与 contracts/audit.py 保持字段名、枚举与嵌套结构一致；ACCEPT 是唯一可发放通行令牌的结论。",
+  "type": "object",
+  "required": ["audit", "findings"],
+  "properties": {
+    "audit": {
+      "type": "object",
+      "required": ["moduleId", "round", "retryCount", "auditedAt", "verdict", "summary"],
+      "properties": {
+        "moduleId": {"type": "string", "enum": ["M0", "M1", "M2", "M3", "M4", "M5", "ROUND2"]},
+        "round": {"type": "integer", "minimum": 1, "maximum": 3},
+        "retryCount": {"type": "integer", "minimum": 0, "maximum": 2},
+        "auditedAt": {"type": "string", "format": "date-time"},
+        "verdict": {"type": "string", "enum": ["ACCEPT", "REJECT", "FLAGGED"]},
+        "summary": {"type": "string"}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["clauseId", "severity", "category", "triangulation", "description", "fix"],
+        "properties": {
+          "clauseId": {"type": "string"},
+          "severity": {"type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]},
+          "category": {"type": "string", "enum": ["harness_violation", "verdict_wrong", "escape_ignored", "all_conditions_relaxed", "ics_ixit_contradiction", "inheritance_broken", "evidence_insufficient", "evidence_overreach", "na_circular", "cross_module_contradiction"]},
+          "triangulation": {
+            "type": "object",
+            "required": ["standardVsIxit", "standardVsEvidence", "ixitVsEvidence"],
+            "properties": {
+              "standardVsIxit": {"type": "string"},
+              "standardVsEvidence": {"type": "string"},
+              "ixitVsEvidence": {"type": "string"}
+            }
+          },
+          "description": {"type": "string"},
+          "fix": {"type": "string"},
+          "affectedFields": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "retryInstruction": {
+      "type": ["object", "null"],
+      "properties": {
+        "targetClauseIds": {"type": "array", "items": {"type": "string"}},
+        "memo": {"type": "string"}
+      }
+    },
+    "harnessReport": {
+      "type": ["object", "null"],
+      "properties": {
+        "executionTraceComplete": {"type": "boolean"},
+        "totalRoundsOk": {"type": "boolean"},
+        "preflightStepsPresent": {"type": "boolean"},
+        "allClausesTraced": {"type": "boolean"},
+        "roundsWithinBudget": {"type": "boolean"},
+        "issues": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "crossModuleIssues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["modulePair", "clausePair", "contradiction", "recommendation"],
+        "properties": {
+          "modulePair": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+          "clausePair": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+          "contradiction": {"type": "string"},
+          "recommendation": {"type": "string"}
+        }
+      }
+    }
+  }
+}

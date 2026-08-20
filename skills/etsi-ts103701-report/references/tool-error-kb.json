@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ETSI Tool Error Knowledge Base",
+  "description": "已知工具错误目录。Mx agent 在工具调用失败时按 error.signature 检索本条目录，找到对应条目后执行 fallback 决策。条目来源: ETSI 检测实测中积累的错误记录 + 常见工具故障模式。",
+
+  "version": "1.0",
+
+  "decisionTypes": {
+    "retry": "同工具，调整参数后重试 1 次。适用于瞬态错误。",
+    "retry_different_params": "同工具，换参数重试 1 次。适用于参数不合理。",
+    "fallback_alternative_tool": "换一个工具达到相同目的。适用于工具永久不可用。",
+    "degrade_semiauto": "退化到手工分析模式。不影响最终裁决但证据级别降为 L3。",
+    "skip_with_inconclusive": "无法自动测试且无替代方案 → 标 INCONCLUSIVE。",
+    "ignore_noncritical": "非核心子功能缺失，忽略继续。",
+    "report_to_main": "需主线程介入，agent 暂停等待指令。"
+  },
+
+  "entries": [
+    {
+      "tool": "nmap",
+      "errors": [
+        {
+          "signature": "NMAP_ALL_PORTS_FILTERED",
+          "patterns": ["All 1000 scanned ports are in ignored states", "0 hosts up", "Host seems down"],
+          "rootCause": "目标不可达、防火墙拦截、或目标 IP 错误",
+          "decision": "retry",
+          "retryParams": "-sS -Pn -T4 --max-retries 2 <DUT_IP>",
+          "onRetryFail": { "decision": "skip_with_inconclusive", "reason": "目标不可达 → 依赖 nmap 的条款 (5.6-1, 5.6-5, 5.5-5 端口比对) 标 INCONCLUSIVE" },
+          "history": ["2026-07: VM 检测时 IP 变了忘更新 → -Pn 后恢复"]
+        },
+        {
+          "signature": "NMAP_SCAN_VERY_SLOW",
+          "patterns": ["scan > 120s", "stuck at SYN Stealth Scan"],
+          "rootCause": "全端口扫描在慢网络/防火墙下极慢",
+          "decision": "retry_different_params",
+          "retryParams": "先 Top 1000 (-sS -T4 --top-ports 1000)，再补扫全端口 (-sS -p- -T4 --max-retries 1)。仍超 180s → 仅用 Top 1000",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "Top 1000 + IXIT 15-Intf 交叉验证，未覆盖端口标 UNCERTAIN" },
+          "history": []
+        },
+        {
+          "signature": "NMAP_PERMISSION_DENIED",
+          "patterns": ["Permission denied", "requires root privileges"],
+          "rootCause": "Linux 下未用 sudo；Windows 下通常不需要",
+          "decision": "retry",
+          "retryParams": "Windows: 检查是否被杀软拦截，关掉杀软重试。Linux: sudo nmap ...",
+          "onRetryFail": { "decision": "skip_with_inconclusive", "reason": "无权限执行 nmap → 端口相关条款标 INCONCLUSIVE" },
+          "history": []
+        }
+      ]
+    },
+
+    {
+      "tool": "tshark",
+      "errors": [
+        {
+          "signature": "TSHARK_NO_INTERFACES",
+          "patterns": ["There are no interfaces on which a capture can be done", "tshark -D 返回空"],
+          "rootCause": "Wireshark/Npcap 安装不完整或权限不足",
+          "decision": "retry",
+          "retryParams": "管理员运行 tshark；检查 Npcap (Get-Service npcap)",
+          "onRetryFail": { "decision": "report_to_main", "reason": "tshark 不可用 → M3 通信加密全部条款受影响" },
+          "history": []
+        },
+        {
+          "signature": "TSHARK_EMPTY_CAPTURE",
+          "patterns": ["capture.pcap < 1KB", "tshark -r capture.pcap 无输出"],
+          "rootCause": "抓包时无流量经过网卡、过滤错误、或抓包提前终止",
+          "decision": "report_to_main",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": ["2026-07: 接口选错 (WiFi vs 以太网) → 主线程重新指定接口"]
+        },
+        {
+          "signature": "TSHARK_NO_TLS_HANDSHAKE",
+          "patterns": ["tshark -Y 'tls.handshake' 无输出"],
+          "rootCause": "流量未走 TLS 或过滤错误",
+          "decision": "degrade_semiauto",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        }
+      ]
+    },
+
+    {
+      "tool": "burp_mcp",
+      "errors": [
+        {
+          "signature": "BURP_PROXY_HISTORY_EMPTY",
+          "patterns": ["proxy_history 返回 total_filtered: 0"],
+          "rootCause": "浏览器未通过 Burp 代理 (127.0.0.1:8080) 访问 DUT",
+          "decision": "retry",
+          "retryParams": "提醒用户检查代理设置 → 重新浏览 DUT 页面 → 再次调用 proxy_history",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "Burp 无流量 → auth_diff/passive_intel/http_fuzz 不可用。改用 curl 直接发包 + 手工分析。证据级别 L3" },
+          "history": ["频繁发生: 用户忘配代理 → 提醒后恢复"]
+        },
+        {
+          "signature": "BURP_AUTH_DIFF_UNAVAILABLE",
+          "patterns": ["auth_diff 返回空或报错"],
+          "rootCause": "Community Edition 无此功能 或 缺少认证/未认证流量",
+          "decision": "fallback_alternative_tool",
+          "alternative": "curl 未认证 vs 认证访问 → 手工 diff (python 逐 API 比对响应 body)",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "手工 diff 结果作为证据，证据级别 L2 (非自动工具但可复现)" },
+          "history": ["2026-07 Community 版: curl 逐端点手工比对替代 auth_diff"]
+        },
+        {
+          "signature": "BURP_PASSIVE_INTEL_EMPTY",
+          "patterns": ["passive_intel 返回空或极少结果"],
+          "rootCause": "代理历史中响应数据不足或未经过 Burp",
+          "decision": "fallback_alternative_tool",
+          "alternative": "proxy_history_search 手工 regex 搜索核心 10 项敏感模式 (api_key, token, password, version, internal IP)",
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "BURP_MCP_CONNECTION_REFUSED",
+          "patterns": ["Connection refused", "MCP 工具全部失败"],
+          "rootCause": "Burp Suite 未启动或 BurpMCP-Ultra 扩展未加载",
+          "decision": "report_to_main",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "HTTP_SEND_REQUEST_DROPS_HEADERS",
+          "patterns": ["http_send_request 的 request_headers 中不含传入的 Cookie", "http_send_request 的 request_headers 中不含传入的 Sessiontag", "http_send_request 自定义 headers 被忽略", "带 Cookie 发请求但响应 401 且 request_headers 无 Cookie"],
+          "rootCause": "【2026-08-17 证伪】扩展源码 HttpBridge.buildRequest (L631-633) 用 withHeader/withRemovedHeader 原样应用传入头，无丢弃逻辑。历史 401 根因是 ISAPI 双头认证配对错误/令牌过期 (见 AUTH_TOKEN_PAIR_MISMATCH / AUTH_SESSION_EXPIRED)，非工具丢头。request_headers 中无 Cookie 应查凭据来源而非工具。",
+          "decision": "fallback_alternative_tool",
+          "alternative": "先取正确凭据: proxy_latest_auth{host:<DUT>} 拿同帧 Cookie+SessionTag+Authorization (verify.valid=true) → 重试 http_send_request 并显式传 request_headers。若仍 401 → 目标拒绝该凭据，不是丢头。令牌预检/认证对比仍用 auth_diff (auth_levels 强制注入，不依赖外部凭据)。",
+          "onRetryFail": null,
+          "history": ["2026-08-05: 受控 DUT（地址已脱敏）auth_diff 令牌预检 → 先用 http_send_request 带 Cookie header 验证 → 返回 401 且 request_headers 中无 Cookie → 曾误判工具丢头 → 改用 auth_diff 后正常", "2026-08-17: 审计 HttpBridge.buildRequest 源码证伪丢头主张，根因归双头配对/令牌过期"]
+        },
+        {
+          "signature": "BURP_WS_MESSAGE_TOO_LARGE",
+          "patterns": ["websocket_get_messages 超时", "WebSocket 消息无返回"],
+          "rootCause": "固件上传走 WebSocket (5.3-2/5.3-9)，.dav 固件二进制数据经 WS 帧传输，单帧可达数 MB。不设限制直接拉取 → MCP 序列化大帧超时。",
+          "decision": "retry_different_params",
+          "retryParams": "加限制后重试: direction=server_to_client + max_results≤20 (如 module-split.md L364 所述)。限制后可以正常确认设备响应帧的序号和关键状态字。",
+          "onRetryFail": {
+            "decision": "degrade_semiauto",
+            "reason": "限制后仍超时 (罕见) → tshark 从 capture.pcap 提取 WebSocket 帧: tshark -r capture.pcap -Y 'websocket && ip.src==<DUT_IP>' -T fields -e frame.number -e websocket.opcode -e data.text。证据级别 L3"
+          },
+          "history": ["固件升级实测: 不限 max_results 直接调 websocket_get_messages → 超时。加 direction=server_to_client + max_results≤20 后正常返回，能确认设备响应帧序号和 keyword。事后用 tshark 提取 pcap 中的 WS 帧做进一步佐证。"]
+        },
+        {
+          "signature": "CONFIG_MATCH_REPLACE_ADD_SHADOW",
+          "patterns": ["config_match_replace_add 返回 added 但 list 看不到新规则", "total_rules 比 list 条数多 1"],
+          "rootCause": "影子计数器 bug: config_match_replace_add 写内存副本，add 返回 total_rules:N 但 config_match_replace_list / burp_export_project_config(proxy.match_replace_rules) 仍 N-1 条；对新增 index 调 remove 报 Invalid rule index。",
+          "decision": "fallback_alternative_tool",
+          "alternative": "不要用 config_match_replace_add 做需持久化的规则。改 burp_import_project_config 导入完整 proxy.match_replace_rules 数组（先 burp_export_project_config 拿现网结构再改）。",
+          "onRetryFail": null,
+          "history": ["2026-08-17 全量拨测: add 返回 total_rules:13，list 仍 12 条，remove(12) 报 Invalid rule index: 12. Valid range: 0..11"]
+        },
+        {
+          "signature": "CONFIG_PROXY_LISTENER_ADD_SHADOW",
+          "patterns": ["config_proxy_listener_add 返回 added 但 listener 列表看不到", "total_listeners 比实际多 1"],
+          "rootCause": "同 config_match_replace_add: config_proxy_listener_add 写内存副本未持久化，add 返回 total_listeners:2 但 config_proxy_listeners_list 仍 1 (8080)；remove(新 listener) 报 No listener found。",
+          "decision": "fallback_alternative_tool",
+          "alternative": "不要用 config_proxy_listener_add 加监听器。改 burp_import_project_config 导入完整 proxy.request_listeners（含新 listener 配置）。",
+          "onRetryFail": null,
+          "history": ["2026-08-17 全量拨测: add 返回 total_listeners:2，list 仍 1 (8080)，remove(127.0.0.1:18099) 报 No listener found"]
+        },
+        {
+          "signature": "COOKIE_JAR_SET_DOMAIN_PATH_SWAP",
+          "patterns": ["http_cookie_jar_set 后按 domain 过滤读不回", "cookie jar 里 domain 显示为 /", "cookie 的 domain 和 path 错位"],
+          "rootCause": "http_cookie_jar_set 的 domain/path 字段在 set 或 get 序列化时交换位置: set 报 cookie_set:true 且 cookie 确实入 jar，但真实域名跑进 path、domain 显示 \"/\" → 按 domain 过滤读不回。",
+          "decision": "retry_different_params",
+          "retryParams": "不要依赖 http_cookie_jar_set 按 domain 持久化。取认证头用 proxy_latest_auth{host}（从 proxy_history 同帧提取，不经 cookie jar）；确认 jar 状态用 http_cookie_jar_get 不带 domain 过滤全量看。",
+          "onRetryFail": null,
+          "history": ["2026-08-17 全量拨测: set 报 cookie_set:true，cookie 入 jar，但 domain 显示 \"/\"、真实域名进 path，按 domain 过滤读不回"]
+        },
+        {
+          "signature": "SCANNER_CREATE_ISSUE_SHADOW",
+          "patterns": ["scanner_create_issue 返回 created 但 sitemap 读不回", "scanner_get_all_issues 不显示手动 issue"],
+          "rootCause": "影子存储: scanner_create_issue 报 created:true 但 sitemap_get_issues / scanner_get_all_issues 均读不回 → issue 写入非 Burp sitemap 或未注册到 scanner 索引。",
+          "decision": "degrade_semiauto",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": ["2026-08-17 全量拨测: created:true，sitemap_get_issues/scanner_get_all_issues 均读不回"]
+        }
+      ]
+    },
+
+    {
+      "tool": "sqlmap",
+      "errors": [
+        {
+          "signature": "SQLMAP_TARGET_UNREACHABLE",
+          "patterns": ["connection refused", "cannot connect to target"],
+          "rootCause": "目标 URL 不可达或需认证未带 cookie",
+          "decision": "retry_different_params",
+          "retryParams": "加 --cookie='...' + --random-agent + --delay=1",
+          "onRetryFail": { "decision": "skip_with_inconclusive", "reason": "SQLi 子项标 INCONCLUSIVE。dir_brute_force.py + http_fuzz 仍可覆盖其他注入类型" },
+          "history": []
+        },
+        {
+          "signature": "SQLMAP_NO_INJECTION_FOUND",
+          "patterns": ["all tested parameters do not appear to be injectable"],
+          "rootCause": "确实无 SQLi — 这是正常 PASS 结果，非故障",
+          "decision": "ignore_noncritical",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "SQLMAP_ICMPSH_MISSING",
+          "patterns": ["CRITICAL: icmpsh_m module not found"],
+          "rootCause": "非核心子功能 (ICMP shell) 依赖缺失",
+          "decision": "ignore_noncritical",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": ["2026-07 env-check: 确认非阻塞"]
+        },
+        {
+          "signature": "SQLMAP_WAF_DETECTED",
+          "patterns": ["WAF/IPS identified"],
+          "rootCause": "目标前有 WAF",
+          "decision": "degrade_semiauto",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        }
+      ]
+    },
+
+    {
+      "tool": "playwright_mcp",
+      "errors": [
+        {
+          "signature": "PLAYWRIGHT_MCP_UNAVAILABLE",
+          "patterns": ["browser_tabs 返回空或报错", "browser_navigate 超时"],
+          "rootCause": "浏览器未启动或 Playwright MCP 未连接",
+          "decision": "report_to_main",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": ["2026-07: 多次发生 → 5.1-3/5.5-1 前端加密分析退化", "2026-08-10: 策略变更 → 改为 report_to_main 禁止降级"]
+        },
+        {
+          "signature": "PLAYWRIGHT_ELEMENT_NOT_FOUND",
+          "patterns": ["element not found", "snapshot 中无对应元素"],
+          "rootCause": "页面结构与预期不同，或登录后页面跳转",
+          "decision": "degrade_semiauto",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "PLAYWRIGHT_REF_VOLATILE",
+          "patterns": ["browser_fill_form 找不到 ref", "browser_click 找不到 ref", "ref 值失效", "用保存的 ref 操作失败"],
+          "rootCause": "Playwright MCP 的 browser_snapshot 返回的 ref= 值是 session-scoped 的，每次 snapshot 都会重新生成。跨调用复用旧 ref → 必然失败。",
+          "decision": "retry",
+          "retryParams": "每次 browser_fill_form / browser_click / browser_type 前必须先调 browser_snapshot 获取当前 ref。不要在任何变量中缓存 ref 值。",
+          "onRetryFail": null,
+          "history": ["frontend-encryption-check.md 已知坑第 1 条"]
+        },
+        {
+          "signature": "PLAYWRIGHT_ELEMENT_REF_UNSTABLE",
+          "patterns": ["browser_fill_form 失败", "browser_type 不可用", "Element UI 组件 ref 变化"],
+          "rootCause": "Element UI / Ant Design 等组件库每次 render 重新生成 DOM 结构，ref 值不稳定。browser_fill_form / browser_type 依赖稳定的 ref → 间歇性失败。",
+          "decision": "fallback_alternative_tool",
+          "alternative": "browser_evaluate 执行 JS 原生 DOM 操作: document.querySelector('input[placeholder=\"用户名\"]').value='test'; document.querySelector('button').click()。绕过 ref 机制，直接操作 DOM。",
+          "onRetryFail": { "decision": "report_to_main", "reason": "前端交互不可自动化 → report_to_main（禁止降级为 Burp/手工替代）" },
+          "history": ["2026-07-27 smoke-test: 海康 NVR 登录页 → Element UI ref 不稳定 → browser_evaluate JS 注入绕过成功"]
+        }
+      ]
+    },
+
+    {
+      "tool": "curl",
+      "errors": [
+        {
+          "signature": "CURL_CONNECTION_REFUSED",
+          "patterns": ["Connection refused", "exit code 7"],
+          "rootCause": "端口未开放或服务未运行",
+          "decision": "ignore_noncritical",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "CURL_TIMEOUT",
+          "patterns": ["Connection timed out", "exit code 28"],
+          "rootCause": "防火墙拦截或网络不可达",
+          "decision": "retry",
+          "retryParams": "--connect-timeout 10 --max-time 15 (放宽超时)",
+          "onRetryFail": { "decision": "skip_with_inconclusive", "reason": "目标端口不可达" },
+          "history": []
+        }
+      ]
+    },
+
+    {
+      "tool": "xray",
+      "errors": [
+        {
+          "signature": "XRAY_START_FAILED",
+          "patterns": ["Failed to start", "port already in use"],
+          "rootCause": "7778 端口被占用或 config.yaml 错误",
+          "decision": "retry",
+          "retryParams": "检查端口占用 (netstat -ano | findstr 7778) → kill 占用进程 → 重试",
+          "onRetryFail": { "decision": "skip_with_inconclusive", "reason": "xray 不可用 → M5 被动扫描广度复核标 INCONCLUSIVE。sqlmap + dir_brute_force.py + http_fuzz 仍作为主动探测覆盖" },
+          "history": []
+        },
+        {
+          "signature": "XRAY_EMPTY_LOG",
+          "patterns": ["xray_run.log 为空或只有启动信息"],
+          "rootCause": "无流量经过 xray 代理或 hostname_allowed 过滤了所有请求",
+          "decision": "ignore_noncritical",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        }
+      ]
+    },
+
+    {
+      "tool": "burp_mcp_auth",
+      "errors": [
+        {
+          "signature": "AUTH_DIFF_CRLF_TIMEOUT",
+          "patterns": ["status_code: 0", "response_time_ms: 80", "response_time_ms 接近 8000", "failed: null", "auth_levels_tested: 1", "auth_diff 所有 level 超时", "auth_diff 8 秒超时"],
+          "rootCause": "HTTP/1.1 协议要求行尾为 CRLF (\\r\\n)。request 参数中使用普通换行 (\\n) 会导致服务器无法正确解析请求 → 连接挂起直到 TCP 超时 (~8s)。【2026-08-17 已修】扩展自动 normalizeRequestCrlf + 结构校验（请求行/Host），裸 \\n 不再导致超时；结构错误返回 isError + AUTH_DIFF_STRUCTURE + fix。",
+          "decision": "retry_different_params",
+          "retryParams": "若报 AUTH_DIFF_STRUCTURE → 按返回的 fix 修正 request（请求行/Host/CRLF 缺失）。仍超时 → 目标不可达或 TLS 握手失败，转 onRetryFail。验证: 正常响应 time_ms ~70-100ms，status_code 非 0。",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "auth_diff 连接持续超时 → 目标可能不可达或 TLS 握手失败。改用 curl 逐端点手工 diff。" },
+          "example": "错误: \"GET /path HTTP/1.1\\nHost: DUT\\n\\n\" → 正确: \"GET /path HTTP/1.1\\r\\nHost: DUT\\r\\n\\r\\n\"",
+          "history": ["2026-07-29: 受控 NVR 测试发现此问题，已写入 auth-diff-workflow.md 已知坑第一条", "2026-08-05: 受控 DUT（地址已脱敏）独立测试 → agent 连续 4 次 timeout 8s 后误判为 'auth_diff 不走 Burp 代理' → 读 workflow 文档后修复 → 首次成功返回 admin=200/none=401 仅 79ms。确认根因就是 \\r\\n。", "2026-08-17: normalizeRequestCrlf 已实现，裸 \\n 自动规范化，不再需要手工替换。"]
+        },
+        {
+          "signature": "AUTH_DIFF_LEAKS_ORIGINAL_AUTH",
+          "patterns": ["auth_diff 响应中 auth_headers_stripped 为空", "auth_diff 所有级别响应完全相同"],
+          "rootCause": "【2026-08-17 已修】扩展自动剥认证头: 所有 level 默认剥 base 的 Cookie/Authorization/X-API-Key/X-Auth-Token（保留 SessionTag），none 额外剥 SessionTag。历史版本不自动剥 → none 实际带认证 → 漏报。",
+          "decision": "retry",
+          "retryParams": "确认响应含 auth_headers_stripped 字段（列出被剥认证头）。需保留某头 → 传 preserve_headers:[...]。若仍出现 none=200 → 目标本身允许匿名访问（真 PASS），非剥头失效。",
+          "onRetryFail": null,
+          "history": ["auth-diff-workflow.md 已知坑第 2 条: 旧版 'auth_diff 不会自动剥离原请求中的认证头'。2026-08-17: 扩展已自动剥头 + preserve_headers 逃生舱 + auth_headers_stripped 明示。"]
+        },
+        {
+          "signature": "AUTH_DUAL_HEADER_REQUIRED",
+          "patterns": ["AUTH_DIFF_DUAL_HEADER_REQUIRED", "auth_diff admin 和 none 均返回 401", "auth_diff admin and none both return 401", "proxy_history 中请求同时含 Cookie 和 Sessiontag header", "request contains both Cookie and Sessiontag"],
+          "rootCause": "海康 ISAPI 设备使用双认证头: Cookie (WebSession_xxx) + Sessiontag header。2.0.1 起 device_hint:'isapi' 强制双头校验: base 有 SessionTag 且无 level 注入 Cookie → 结构化错误 AUTH_DIFF_DUAL_HEADER_REQUIRED（不再静默 no-op）。",
+          "decision": "retry_different_params",
+          "retryParams": "device_hint:'isapi' + auth_levels 用 headers:[{name:'Cookie', value:'WebSession_xxx={token}'}] 注入 Cookie，Sessiontag 放 base request。token 用 proxy_latest_auth{host} 拿同一帧配对 (verify.valid=true)。header_name 无 header_value → AUTH_DIFF_HEADER_VALUE_MISSING。效果: admin=Cookie+Sessiontag→200, none=Sessiontag→401。",
+          "example": "request: \"GET /path HTTP/1.1\\r\\nHost: DUT\\r\\nSessiontag: {tag}\\r\\n\\r\\n\" | auth_levels: [{name:'admin', headers:[{name:'Cookie', value:'WebSession_xxx={token}'}]}, {name:'none'}]",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "双头认证无法通过 auth_diff 自动化 → 手工 Burp Repeater 逐端点测试。证据级别 L3" },
+          "history": ["2026-07-29 受控 NVR（型号已脱敏）：定位根因为双头认证 + token 配对错误。修复后受控端点验证通过。", "2026-08-17: headers 多头数组 + device_hint:'isapi' 双头校验 + AUTH_DIFF_HEADER_VALUE_MISSING 结构化报错已实现。"]
+        },
+        {
+          "signature": "AUTH_TOKEN_PAIR_MISMATCH",
+          "patterns": ["auth_diff admin 返回 401", "auth_diff admin returns 401", "tokens 从不同 proxy_history frame 提取", "tokens from different proxy_history frames", "token.*pair.*mismatch", "Cookie.*Sessiontag.*mismatch"],
+          "rootCause": "WebSession 和 Sessiontag 是配对生成的。从 cookie jar 取 WebSession + 从旧 proxy_history 取 Sessiontag → 配对错误 → 401。两个 token 必须在同一个 HTTP 请求中提取。",
+          "decision": "retry",
+          "retryParams": "用 proxy_latest_auth{host:<DUT>} 一步取同一 proxy 帧的 Cookie+SessionTag+Authorization（扩展保证同帧提取 + live GET 验证配对有效性）。verify.valid=true 的 tokens 即正确配对。不再手动跨帧拼 token。",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "无法获取配对 token → 用户在浏览器刷新页面后再试。证据级别 L3" },
+          "history": ["2026-07-29: cookie jar WebSession + proxy_history Sessiontag 配对错误导致 401。同帧提取后立即恢复。", "2026-08-17: 改走 proxy_latest_auth 自动同帧提取 + 验证，替代手动 proxy_history_search 最高 index 提取。"]
+        },
+        {
+          "signature": "BURP_PROXY_HISTORY_OVERFLOW",
+          "patterns": ["proxy_history 返回 > 150KB", "proxy_history 忽略 max_results 参数", "proxy_history 返回条数远大于请求的 max_results"],
+          "rootCause": "【2026-08-17 已修】BurpMCP-Ultra 2.0.1 的 proxy_history 只读 count 参数（默认 100），脚本传 max_results 被静默忽略 → 恒取 100/全量，非数据溢出。2.0.1 已为 proxy_history 加 max_results 别名。",
+          "decision": "retry",
+          "retryParams": "直接传 max_results（或 count）限定条数重试。需要最新 N 条: proxy_history(host, max_results:1) 取 total_filtered → proxy_history(host, start_index:total_filtered-N, max_results:N)。",
+          "onRetryFail": null,
+          "history": ["2026-07-29: proxy_history 返回 274KB 上下文溢出，曾降级用 proxy_history_search 精确 pattern。2026-08-17: 确认真根因是参数别名缺失，2.0.1 加别名后 max_results 生效。"]
+        },
+        {
+          "signature": "AUTH_SESSION_MISMATCH",
+          "patterns": ["auth_diff admin 和 none 都返回 401", "已登录且 proxy_history 有认证流量但重放仍 401", "Cookie+SessionTag 从同帧提取仍然 401"],
+          "rootCause": "多层可能原因 (待进一步验证): ①Cookie 内含动态 token (CSRF/timestamp nonce) 未一并提取；②认证绑定 IP/User-Agent，重放时缺失；③Session 因 Burp 代理链原因未正确维持。",
+          "decision": "degrade_semiauto",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": ["标记于 fallback-decider.md §已知未解决问题 → 待解决后更新本条", "2026-08-17: proxy_latest_auth 内置 live GET 验证可用于区分会话过期 vs 凭据无效——verify.valid=false 即会话已过期，走 AUTH_SESSION_EXPIRED 一步刷新"]
+        }
+      ]
+    },
+
+    {
+      "tool": "generic",
+      "errors": [
+        {
+          "signature": "AGENT_STUCK_LOOP",
+          "patterns": ["连续 3 轮 tool_call 未产生新 finding", "同一工具连续调用 5+ 次"],
+          "rootCause": "工具参数错误、目标无响应、或 agent 陷入重复模式",
+          "decision": "skip_with_inconclusive",
+          "retryParams": null,
+          "onRetryFail": null,
+          "history": []
+        },
+        {
+          "signature": "AUTH_SESSION_EXPIRED",
+          "patterns": ["401 Unauthorized", "session expired", "login required"],
+          "rootCause": "认证会话过期或 Cookie/SessionTag/Authorization 失效。刷新凭据的唯一可靠来源是 proxy_history 中最近的认证帧（ISAPI 心跳 15s / 浏览器轮询 30s，高频端点必带有效凭据）。",
+          "decision": "retry",
+          "retryParams": "一步刷新: 调 mcp__burp__proxy_latest_auth{host:<DUT>} → 扩展内真频率分析(按规范化路径计数, 平局取新 index) + 从同一 proxy 帧提取 Cookie+SessionTag+Authorization + live GET 验证。verify.performed=true 且 verify.valid=true → 用返回 tokens 重试当前工具；status=expired/no_traffic/no_auth → 提示用户在 Burp 代理下刷新 DUT 页面后重调。凭据刷新不计入 retry 次数。不再需要 session_ensure.py 两步法。",
+          "onRetryFail": { "decision": "degrade_semiauto", "reason": "proxy_latest_auth 无法返回有效凭据: proxy_history 中无有效认证帧，用户未通过 Burp 代理登录或浏览器已关闭。降级为未认证探测 + IXIT 分析。证据级别 L3。" },
+          "history": ["auth_token_discovery.py 的 find_best_token 原实现是'取 index 最大认证帧'（无路径计数，频率分析虚构），2026-08-17 由扩展内 proxy_latest_auth 真频率分析取代。两步法 (proxy_history 两步取数 + 本地脚本 discover/验活) 废弃，凭据刷新改一步调用。"]
+        }
+      ]
+    }
+  ]
+}

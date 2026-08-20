@@ -1,0 +1,202 @@
+{
+  "version": "1.0",
+  "description": "ETSI TS 103 701 Phase Definitions — data-driven phase decomposition for each module.",
+
+  "providers": [
+    {
+      "name": "fresh_cookie",
+      "callable_ref": "tool:http_cookie_jar_get",
+      "scope": "MODULE",
+      "ttl_seconds": 120,
+      "output_key": "session_cookie",
+      "description": "从 Burp cookie jar 获取最新 session cookie"
+    }
+  ],
+
+  "modules": {
+    "M1": {
+      "phases": [
+        {
+          "id": "phase_A",
+          "name": "端口扫描与服务发现",
+          "clauses": ["5.6-1", "5.6-2", "5.6-3", "5.6-4"],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/vm-methods.md"
+          ],
+          "pool_outputs": [
+            {"key": "open_ports", "scope": "PUBLIC"},
+            {"key": "service_map", "scope": "PUBLIC"}
+          ],
+          "providers_used": []
+        },
+        {
+          "id": "phase_B",
+          "name": "安全分析与攻击面评估",
+          "clauses": ["5.5-2", "5.5-4", "5.5-5"],
+          "depends_on": ["phase_A"],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp"],
+          "knowledge_additions": [],
+          "pool_outputs": [
+            {"key": "attack_surface_summary", "scope": "PUBLIC"}
+          ],
+          "providers_used": []
+        }
+      ]
+    },
+
+    "M2": {
+      "phases": [
+        {
+          "id": "phase_A",
+          "name": "认证机制测试",
+          "clauses": ["5.1-1", "5.1-3", "5.1-4", "5.1-5"],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/frontend-encryption-check.md"
+          ],
+          "pool_outputs": [
+            {"key": "auth_mechanisms", "scope": "PUBLIC"},
+            {"key": "login_endpoints", "scope": "PUBLIC"},
+            {"key": "encryption_frontend", "scope": "PUBLIC"}
+          ],
+          "providers_used": ["fresh_cookie"]
+        },
+        {
+          "id": "phase_B",
+          "name": "口令策略分析",
+          "clauses": ["5.1-2"],
+          "depends_on": ["phase_A"],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [],
+          "pool_outputs": [],
+          "providers_used": []
+        }
+      ]
+    },
+
+    "M3": {
+      "phases": [
+        {
+          "id": "phase_A",
+          "name": "独立 TLS 与通信分析",
+          "clauses": ["5.5-6", "5.5-7", "5.8-1", "5.8-2"],
+          "depends_on": [],
+          "wait_for_pool_keys": ["open_ports"],
+          "tools": ["bash", "burp_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/pcap-analyzer-reference.md"
+          ],
+          "pool_outputs": [
+            {"key": "tls_analysis", "scope": "PUBLIC"},
+            {"key": "outbound_analysis", "scope": "PUBLIC"}
+          ],
+          "providers_used": []
+        },
+        {
+          "id": "phase_B",
+          "name": "TLS 验证 (需 M2 加密分析)",
+          "clauses": ["5.5-1"],
+          "depends_on": ["phase_A"],
+          "wait_for_pool_keys": ["encryption_frontend"],
+          "tools": ["bash", "burp_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/frontend-encryption-check.md",
+            "etsi-ts103701-report/references/pcap-analyzer-reference.md"
+          ],
+          "pool_outputs": [],
+          "providers_used": []
+        }
+      ]
+    },
+
+    "M4": {
+      "phases": [
+        {
+          "id": "phase_A",
+          "name": "软件更新机制",
+          "clauses": [
+            "5.3-1", "5.3-2", "5.3-6", "5.3-10",
+            "5.3-13", "5.3-14", "5.3-15", "5.3-16"
+          ],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/pcap-analyzer-reference.md"
+          ],
+          "pool_outputs": [
+            {"key": "update_mechanisms", "scope": "PUBLIC"}
+          ],
+          "providers_used": []
+        },
+        {
+          "id": "phase_B",
+          "name": "硬件安全与完整性",
+          "clauses": ["5.4-1", "5.4-2", "5.4-3", "5.7-1", "5.7-2"],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [],
+          "pool_outputs": [
+            {"key": "hardware_security", "scope": "PUBLIC"}
+          ],
+          "providers_used": []
+        }
+      ]
+    },
+
+    "M5": {
+      "phases": [
+        {
+          "id": "phase_A",
+          "name": "漏洞扫描与输入验证",
+          "clauses": ["5.13-1", "5.2-1"],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [],
+          "pool_outputs": [
+            {"key": "vuln_scan_results", "scope": "MODULE"},
+            {"key": "api_endpoints", "scope": "PUBLIC"}
+          ],
+          "providers_used": ["fresh_cookie"]
+        },
+        {
+          "id": "phase_B",
+          "name": "数据保护与加密存储",
+          "clauses": [
+            "5.8-3",
+            "5.11-1", "5.11-2", "5.11-3", "5.11-4",
+            "5.12-1", "5.12-2", "5.12-3"
+          ],
+          "depends_on": ["phase_A"],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [],
+          "pool_outputs": [],
+          "providers_used": []
+        },
+        {
+          "id": "phase_C",
+          "name": "隐私与遥测",
+          "clauses": ["5.9-1", "5.9-2", "5.9-3", "6-1", "6-2", "6-3", "6-5"],
+          "depends_on": [],
+          "wait_for_pool_keys": [],
+          "tools": ["bash", "burp_mcp", "playwright_mcp"],
+          "knowledge_additions": [
+            "etsi-ts103701-report/references/pcap-analyzer-reference.md"
+          ],
+          "pool_outputs": [],
+          "providers_used": []
+        }
+      ]
+    }
+  }
+}

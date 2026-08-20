@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "checklist_version": "etsi-ts103701-traffic-3.1-v1",
+  "items": [
+    {
+      "id": "browse_function_pages",
+      "label": "登录后浏览设备各功能页面（配置页、系统信息、网络设置、用户管理）",
+      "required": true
+    },
+    {
+      "id": "firmware_update_check",
+      "label": "触发固件更新检查（不实际升级）",
+      "required": true
+    },
+    {
+      "id": "firmware_upload_old",
+      "label": "固件升级实测：上传 old/ 中的旧版固件，记录请求/响应、设备提示、版本或重启状态",
+      "required": true,
+      "evidence_fields": ["request", "response", "device_prompt", "version_or_reboot"]
+    },
+    {
+      "id": "firmware_upload_tampered",
+      "label": "固件升级实测：上传 new/tampered/ 中的篡改固件，记录请求/响应、设备提示、版本或重启状态（两者均被拒才能分别支撑 5.3-2 与 5.3-9）",
+      "required": true,
+      "evidence_fields": ["request", "response", "device_prompt", "version_or_reboot"]
+    },
+    {
+      "id": "media_playback",
+      "label": "如有实时视频/音频流，播放 10–15 秒",
+      "required": false
+    },
+    {
+      "id": "form_submit",
+      "label": "在各输入框（搜索、配置参数）输入正常内容并提交",
+      "required": true
+    }
+  ]
+}

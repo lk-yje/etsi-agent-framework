@@ -1,0 +1,984 @@
+{
+  "version": "2.0",
+  "purpose": "M0 概念性测试的权威运行目录；条目由 skills/etsi-ts103701-report/references/qbfw_parsed.json 自动生成。",
+  "authority": "qbfw_parsed.json case_type == 概念性",
+  "source": "skills/etsi-ts103701-report/references/qbfw_parsed.json",
+  "execution_lane": "m0_concept",
+  "retry_limit": 2,
+  "audit_batch_size": 8,
+  "clauses": [
+    {
+      "clause_id": "4-1",
+      "source_clause_id": "4-1",
+      "test_case_id": "4-1-1",
+      "origin_module": "M0",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [],
+      "test_purpose": "本测试用例的目的是对被测设备（DUT）判定为“不适用”或“未履行”的建议项所提供的理由进行概念性评估。",
+      "test_units": "测试实验室（TL）应检查在 ICS（实现一致性声明）中，是否针对每一项被判定为对 DUT“不适用”或“未履行”的建议项都给出了理由。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n针对每一项被判定为对 DUT 不适用的建议项，均给出了理由；且\n针对每一项被判定为未被 DUT 履行的建议项，均给出了理由。\n否则将结论为“失败”。\n注：这里区分一下不适用（not applicable）和未履行（not fulfilled），未履行是针对建议条款（R项），强制条款不能选择未履行，但可能不适用。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.1-1",
+      "source_clause_id": "5.1-1",
+      "test_case_id": "5.1-1-1",
+      "origin_module": "M2",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对基于口令的身份验证机制进行概念评估。",
+      "test_units": "测试实验室（TL）应针对 IXIT 1-AuthMech 中列出的所有基于口令的用户身份验证机制进行评估。在这些机制中，如果口令不是由用户根据“Authentication Factor 身份验证因子（知识因子，如口令或PIN码等；持有因子，如短信验证或智能卡；固有因子，如指纹或人脸等）”定义的，并且用于除出厂默认状态 (Factory Default) 以外的任何状态，则需评估“Password Generation Mechanism 口令生成机制”是否确保了每个设备拥有唯一的口令。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n在除出厂默认状态 (Factory Default) 以外的任何状态下使用的、非用户定义的每个基于密码的身份验证机制的口令，在每个设备上都是唯一的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.1-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.1-2",
+      "source_clause_id": "5.1-2",
+      "test_case_id": "5.1-2-1",
+      "origin_module": "M2",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对预装口令的生成机制进行概念评估。",
+      "test_units": "对于 IXIT 1-AuthMech 中根据“验证因素”使用预装口令的每种验证机制，TL应评估“口令生成机制”中的生成机制是否会在生成的口令中产生明显的规律性。\n注 1：递增计数器（如 “password1”、”password2 “等）可能有明显的规律性。\nTL应评估生成机制是否会在所生成的口令中生成共同字符串或其他共同模式。\n注 2：常用字符串可以是口令字典中包含的字符串，例如：https://www.ncsc.gov.uk/static-assets/documents/PwnedPasswordsTop100k.txt。\nTL应评估生成机制是否会生成与公共信息明显相关的口令。\n注 3： 公共信息可以是设备的 MAC 地址、Wi-Fi® SSID、名称、类型和描述。\nTL应评估生成机制是否能诱导出被认为符合复杂性要求的口令。\n注 4：在这种情况下，复杂性与利用攻击者掌握的信息猜出口令的概率有关。口令的长度是衡量口令复杂性的一个重要方面。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n没有发现预装口令有明显的规律性；以及\n在预装口令中没有发现共同字符串或其他共同模式；以及\n预装口令的生成机制不会生成与公共信息明显相关的口令；以及\n认为预装口令的生成机制在复杂性方面是适当的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.1-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.1-3",
+      "source_clause_id": "5.1-3",
+      "test_case_id": "5.1-3-1",
+      "origin_module": "M2",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对身份验证机制所使用的加密技术进行概念性评估，涉及最佳实践加密技术的使用（a-c）和易受可行攻击的脆弱性（d）。",
+      "test_units": "对于 IXIT 1-AuthMech 中用于针对 DUT 对用户进行身份验证的每种身份验证机制， TL应评估厂商宣称的“Security Guarantees 安全保证”是否匹配用户身份验证场景。至少应满足“完整性（Integrity）”和“真实性（Authenticity）”的要求。\n对于 IXIT 1-AuthMech 中用于针对 DUT 对用户进行身份验证的每种身份验证机制，TL应根据“说明”评估所采用的具体机制（如某种协议流程）是否足以实现上“安全保证”。\n注 1：评估机制的安全性需要采取综合方法。\n对于 IXIT 1-AuthMech 中用于针对 DUT 进行用户验证的每种验证机制，TL 应根据参考目录评估“加密细节”是否被视为用户验证用例的最佳实践加密。如果“加密细节”未包含在相应用例的参考目录中（如新型加密技术），则 SO 应提供证据、例如，风险分析，以证明加密技术适合于该用例的最佳做法。在这种情况下，TL应评估有关证据是否适合和可靠。\n注 2：ETSI TR 103 621 [i.7]中提供了基于用例的最佳加密方法示例清单。\n此外，还有一些关于最佳实践密码学的通用参考目录，例如\nSOGIS 商定的加密机制 (https://www.sogis.eu)。\n注 3：考虑到 DUT 的预期寿命和密码灵活性，就其所需安全特性（如 SHA1 的抗碰撞性）而言已被淘汰或依赖于不合适的密码参数（如密钥尺寸）的加密算法或基元不能被视为最佳实践密码学。\nd)对于IXIT 1-AuthMech中用于针对 DUT 对用户进行身份验证的每种身份验证机制，TL应通过参考合格的密码分析报告，评估“密码细节”是否不会在“安全保证”的基础上受到针对特定安全属性的可行攻击。\n注 4：合格的密码分析报告通常发表在科学文献上，或由SO提供。此外，条款 D.2 提供了针对基本层级的攻击的相关信息。\n注：如 HTTPS、SSH 等具备密码学属性的应用层协议可行，但仅通过 HTTP 等明文协议不可行",
+      "pass_criteria": "如果所有用户身份验证机制满足下列情况，则结论为“通过”：\n安全保证（Security Guarantees）对于用户身份鉴别这一应用场景是合适的；以及\n所采用的机制足以在当前应用场景下实现上述安全保证；以及\n所有使用的加密细节都被视为使用案例的最佳做法；以及\n对于所期望的安全属性而言，所有使用的加密细节目前均未发现存在受到可行攻击的漏洞。\n否则结论为 “失败”。",
+      "functional_case_ids": [
+        "5.1-3-2"
+      ]
+    },
+    {
+      "clause_id": "5.1-4",
+      "source_clause_id": "5.1-4",
+      "test_case_id": "5.1-4-1",
+      "origin_module": "M2",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对更改验证值的机制进行概念评估。",
+      "test_units": "TL应评估 IXIT 1-AuthMech 中表明用于用户身份验证的每个身份验证机制的“描述”，以及IXIT 2-UserInfo 中的“更改机制文档（Documentation of Change Mechanisms）”资源是否考虑了该机制，并以技术知识有限的用户可理解的方式描述了如何更改该机制的身份验证值（见条款 D.3）。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于所有基于用户的身份验证机制，已发布的资源介绍了如何通过简单的机制更改身份验证值。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.1-4-2"
+      ]
+    },
+    {
+      "clause_id": "5.1-5",
+      "source_clause_id": "5.1-5",
+      "test_case_id": "5.1-5-1",
+      "origin_module": "M2",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对使通过网络接口进行暴力攻击变得不可行的机制进行概念评估。",
+      "test_units": "对于 IXIT 1-AuthMech 中的每种验证机制（其中 “说明 “表示该机制可通过网络接口直接寻址），TL应评估“暴力防范”中的机制是否使通过网络接口的暴力攻击变得不可行。\n注 1：缓解暴力破解攻击的方法包括：\n· 尝试验证连续失败之间的延迟时间。\n· 有限次数的身份验证尝试，其后是不允许登录的暂停期。\n· 有限次数的身份验证尝试，其后锁定身份验证机制。\n· 基于最佳密码学实践的认证值适当熵。\n·双因素身份验证。\n注2：有可用的暴力防护最佳实践，例如：https://owasp.org/www.community/controls/Blocking_Brute_Force_Attacks",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所记录的机制使通过网络接口进行暴力攻击变得不可行。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.1-5-2"
+      ]
+    },
+    {
+      "clause_id": "5.2-1",
+      "source_clause_id": "5.2-1",
+      "test_case_id": "5.2-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试案例的目的是对漏洞披露政策的发布进行概念评估。",
+      "test_units": "TL应评估 IXIT 2-UserInfo 中描述的“漏洞披露政策发布地址”时，是否无需满足“拥有用户账号”等标准。也就是说，任何人是否都能访问该文档。\n注：制造商网站是一种合适的方式。",
+      "pass_criteria": "如果出现以下情况，则结论为”通过”：\n任何人都可以查阅发布的漏洞披露政策。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.2-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.2-2",
+      "source_clause_id": "5.2-2",
+      "test_case_id": "5.2-2-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "3-VulnTypes",
+        "2-UserInfo",
+        "4-Conf"
+      ],
+      "test_purpose": "本测试案例的目的是对 a) 漏洞的处理方式进行概念性评估，并确认 b) 的实施前提已得到保证。",
+      "test_units": "TL应评估：IXIT 3-VulnTypes 中针对每种披露漏洞所描述的“行动（Action）”和“时间框架（Time Frame）”，是否促进了在 IXIT 2-UserInfo 中“漏洞披露政策”指导下对漏洞的及时处理。\n注 1：考虑所处理漏洞的严重性和关键性以及漏洞类型（如固件、硬件或软件）会有所帮助。\n注 2：参与实体之间的合作程度、流程步骤的数量和明确界定的责任是及时部署的重要指标。\n注 3：在涉及第三方（如软件库供应商）的情况下，联络点的文档记录和协作的定义程序是实现及时部署的指标。\n注 4：与同类 IoT 产品处理漏洞的时间框架进行比较是有帮助的。\nTL应检查 IXIT 4-Conf 中的“漏洞行动确认”是否说明已确认。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n无任何迹象表明未对所述任何类型的漏洞未及时采取行动；以及\n提供了执行处理的确认信息。\n否则将结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.2-3",
+      "source_clause_id": "5.2-3",
+      "test_case_id": "5.2-3-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "4-Conf",
+        "5-VulnMon"
+      ],
+      "test_purpose": "本测试案例的目的是对持续监控进行概念性评估，找出并纠正与所述程序 (a-c) 有关的安全漏洞，并确认实施的先决条件已得到保证 d)。",
+      "test_units": "TL应评估IXIT 5-VulnMon中记录的持续监控安全漏洞的方法是否适合于系统地收集有可能影响 DUT 的安全漏洞信息。\nTL应评估IXIT 5-VulnMon中记录的识别安全漏洞的方法是否适用于判定安全漏洞是否以及如何影响 DUT。\nTL应评估IXIT 5-VulnMon中记录的修复安全漏洞的方法是否适合解决和降低 DUT 对安全漏洞的敏感性。\nTL应检查 IXIT 4-Conf 中的“漏洞监控确认”是否说明已确认。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所述方法适合持续监测安全漏洞；以及\n所述方法适合于识别安全漏洞；以及\n所述方法适合于修复安全漏洞；以及\n提供了执行实现的确认信息。\n否则将结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-1",
+      "source_clause_id": "5.3-1",
+      "test_case_id": "5.3-1-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "6-SoftComp"
+      ],
+      "test_purpose": "本测试案例的目的是对软件组件的可更新性进行概念性评估，涉及：a) 缺失软件更新的情况；b) 更新机制本身。",
+      "test_units": "对于 IXIT 6-SoftComp 中“Update Mechanism 更新机制”列表为空的每一个软件组件，测试实验室（TL）应评估其无法实施软件更新的原因是否属于“在实际操作中不可行”，或是“出于安全原因”，并参考关于缺失软件更新的合理解释。\n示例1：物联网设备可能包含与主系统分离的、仅在内部可寻址的微控制器。这些微控制器通常作为内部服务提供者（例如智能酒柜的温度控制器），有时不具备更新功能。对于此类设备，对这些组件进行软件更新在实际操作中可能是不可行的。\n示例：对于某些实现，DUT 的安全概念可能要求组件不可更改（例如作为引导加载程序信任链一部分的软件）。因此，出于更高层级的安全原因，该组件是不可更新的。\n测试实验室应将测试用例 5.3-2-1 中规定的所有测试单元，应用于 IXIT 6-SoftComp 中引用的每一个“Update Mechanism 更新机制”。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于所有不具备软件更新能力的组件，其无法更新确实是出于实际操作原因或安全原因；以及\n更新机制不会被攻击者滥用。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-2",
+      "source_clause_id": "5.3-2",
+      "test_case_id": "5.3-2-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例旨在对更新安装机制进行概念性评估，重点审查其是否具备足够的防御措施，以防止攻击者滥用该机制在被测设备（DUT）上执行非法操作。",
+      "test_units": "对于 IXIT 7-UpdMech 中记录的每一种更新机制，测试实验室（TL）应评估该更新机制的设计是否能根据“Security Guarantees 安全保证”、相应的“Description 描述”、“Cryptographic Details 密码学细节”以及“Initiation and Interaction 触发与交互”等相关要求，有效防止攻击者滥用。\n注：参考 D.2 节中描述的“基准攻击者模型”有助于进行审查。\n示例：滥用行为可能包括：安装旧版软件更新以降低 DUT 的安全能力（降级攻击），或通过篡改合法更新包来植入恶意软件。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n至少有一种更新机制无法被攻击者滥用。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-3",
+      "source_clause_id": "5.3-3",
+      "test_case_id": "5.3-3-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "6-SoftComp",
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试案例的目的是对更新机制进行概念评估，以简化用户的更新操作。",
+      "test_units": "对于 IXIT 6-SoftComp中的每个软件组件，TL应根据以下因素评估是否至少描述了一种“更新机制”，用户可轻松根据 IXIT 7-UpdMech中的“启动和交互”应用该机制：\n软件更新是自动应用的，无需用户交互；或\n软件更新是通过关联服务（如手机 App）启动的；或\n通过设备上的网络界面启动软件更新；或\n软件更新采用了同等简单的方法，适用于技术知识有限的用户（见条款 D.3）。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每一个软件组件都至少覆盖了一个对用户而言易于操作的更新机制。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-4",
+      "source_clause_id": "5.3-4",
+      "test_case_id": "5.3-4-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "6-SoftComp",
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例旨在对涉及自动机制的更新方案进行概念性评估。",
+      "test_units": "对于 IXIT 6-SoftComp 中的每个软件组件，TL应评估 IXIT 7-UpdMech 中是否至少描述了一种 “Update Mechanism 更新机制”，以允许：\n根据“Initiation and Interaction 启动和互动”，更新过程无需任何用户干预；以及\n\"更新检查 Update Checking\"过程无需任何用户干预。\n针对 IXIT 6-SoftComp 表中列出的每一个软件组件，如果其在 IXIT 7-UpdMech 表中对应有可用的“Update Mechanism 更新机制”，且在该机制的“Configuration 配置”项中具备自动化设置功能，那么TL必须核实：该组件是否至少有一种自动更新机制在出厂时是默认开启的。\n注：b项即：如果设备支持自动更新，且这个功能是可以由用户开关的，那么在设备出厂或恢复出厂设置后，这个“自动更新”的开关必须是默认打开的。因为绝大多数普通用户永远不会去修改设置菜单里的“自动更新”开关",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每个软件组件都至少有一种更新机制，该机制在检查更新和执行更新时，均无需用户干预；以及\n对于具有可配置更新功能的软件组件，至少有一种自动更新机制是出厂默认开启的。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-5",
+      "source_clause_id": "5.3-5",
+      "test_case_id": "5.3-5-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "6-SoftComp",
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例旨在对更新机制中“检查可用安全更新”的功能进行概念性评估。",
+      "test_units": "针对 IXIT 6-SoftComp 表中列出的每一个软件组件，TL 应评估 IXIT 7-UpdMech 表中是否至少有一种“Update Mechanism 更新机制”，其关于安全更新的查询计划满足以下“Update Checking 更新检查”要求：\n设备初始化后（执行检查）；以及\n周期性地（执行检查）。\n注意：根据设备类型的不同，每天在随机时间点进行一次安全更新检查可能是合适的做法。",
+      "pass_criteria": "如果每一个软件组件都至少被一种更新机制所覆盖，且在该机制下满足以下条件，则判定结果为“通过”：\n软件更新的可用性检查是由被测设备（DUT）自身触发的；以及\n在设备初始化后会检查更新；以及\n会周期性地检查更新。\n\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-6",
+      "source_clause_id": "5.3-6",
+      "test_case_id": "5.3-6-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试案例的目的是对自动更新（a-c）和更新通知（d-e）的配置进行概念评估。",
+      "test_units": "测试实验室（TL）应通过评估该机制是否允许在无需任何用户交互的情况下执行更新（依据“Initiation and Interaction 启动与交互”条目），来识别 IXIT 7-UpdMech 中的所有自动更新机制。\n对于 IXIT 7-UpdMech 中提供自动软件更新的每一种更新机制，测试人员应检查其是否为用户提供了以下能力：启用；或禁用；或推迟自动安装安全更新（依据 IXIT 7-UpdMech 中的“Configuration 配置”条目）。 \n对于 IXIT 7-UpdMech 中提供自动软件更新的每一种更新机制，测试人员应检查在初始化状态下，自动软件更新是否已依据“Configuration 配置”条目开启。\n对于 IXIT 7-UpdMech 中根据“User Notification 用户通知”条目提供更新通知的每一种更新机制，测试人员应检查其是否为用户提供了以下能力：启用；或禁用；或推迟更新通知（依据 IXIT 7-UpdMech 中的“Configuration 配置”条目）。\n对于 IXIT 7-UpdMech 中根据“User Notification 用户通知”条目提供更新通知的每一种更新机制，测试人员应检查在初始化状态下，更新通知是否已依据“Configuration 配置”条目开启。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n若 DUT 支持自动更新，则对于所有更新机制，用户都能启用、禁用或推迟自动安装安全更新，并且在初始化状态下启用了自动更新；或者 DUT 不支持自动更新；以及\n若 DUT 支持更新通知，则对于所有更新机制，用户都能启用、禁用或推迟更新通知，并且在初始化状态下启用了更新通知；或者 DUT 不支持更新通知。\n注：此处指的是不强求设备一定要有这个功能（在这个具体条款下），但如果设备有，就必须把控制权给用户，并且默认帮用户开好，如果没有这个功能，那么关于这个功能的控制权要求就不适用\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-6-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-7",
+      "source_clause_id": "5.3-7",
+      "test_case_id": "5.3-7-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试案例的目的是对更新机制所使用的加密技术进行概念性评估，涉及最佳密码学实践（a-c）和是否存在可行攻击的漏洞（d）。",
+      "test_units": "对于 IXIT 7-UpdMech 中的每种更新机制，TL应评估 “Security Guarantees 安全保证”是否适用于安全更新场景，至少应满足完整性和真实性要求。\n对于 IXIT 7-UpdMech 中的每种更新机制，TL应评估其“Description 描述”中对应的机制是否足以实现上述“Security Guarantees 安全保证”。\n注 1：评估机制的安全性需要采取综合方法。\n对于 IXIT 7-UpdMech 中的每一种更新机制，TL应评估其“Cryptographic Details 加密细节”是否被视为该场景下的最佳实践。若“加密细节”未包含在参考目录中（如创新型密码学），方案提供方（SO）须提供证明（如风险分析报告）来证明其在该场景下的合理性。测试人员须评估该证明是否恰当且可靠。\n注 2：ETSI TR 103 621 [i.7] 中提供了一份基于使用场景的最佳实践密码学示例清单。此外，通用的最佳实践密码学参考目录也可供参考，例如：\nSOGIS 商定的加密机制 (https://www.sogis.eu)。\n注 3：如果某种密码算法或原语在其预期的安全属性方面已被弃用（例如用于抗碰撞性的 SHA-1），或者其所依赖的密码参数（例如密钥长度）考虑到被测设备（DUT）的预期寿命和密码敏捷性后显得不够充分，则不能被视为最佳密码学实践。\n对于 IXIT 7-UpdMech 中的每种更新机制，TL 应参考权威的密码分析报告，评估其“加密细节”在所预期的安全属性上是否存在已知的、可行的攻击弱点。\n注 4：合格的密码分析报告通常发表在科学文献上，或由国家战略机构提供。此外，条款 D.2 提供了有关基线级预期潜在攻击的信息。",
+      "pass_criteria": "如果所有更新机制都通过，则结论为通过：\n安全保证适用于安全更新场景（至少包含完整性与真实性）；以及\n机制足以实现上述安全保证；以及\n所使用的加密细节被视为该场景下的最佳实践；以及\n所使用的加密细节在所预期的安全属性上不存在已知的可行攻击。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-8",
+      "source_clause_id": "5.3-8",
+      "test_case_id": "5.3-8-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "8-UpdProc",
+        "4-Conf",
+        "6-SoftComp",
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例旨在从概念上评估安全更新的部署方式(a)，并确认其实施前提条件是否已得到保障(b)。",
+      "test_units": "TL应评估 IXIT 8-UpdProc 每项安全更新流程的“Description 说明”和“Time Frame 时间框架”是否有助于及时部署安全更新。\n注 1：考虑所解决的安全漏洞的严重性、关键性，以及漏洞类型（如固件、硬件或软件漏洞）将有助于评估。\n注 2：相关实体之间的协作程度、流程步骤的繁简程度以及清晰定义的职责分工，是衡量部署是否及时的重要指标。\n注 3：若涉及第三方（如软件库供应商），文档中是否记录了联络点（对接人）以及明确的协作流程，是衡量部署是否及时的指标。\n注 4：与同类型 IoT 产品的安全更新时间框架进行比较是有益的。\nTL应核查 IXIT 4-Conf 表中的“Confirmation of Update Procedures 更新流程确认”项是否给出了明确的实施确认。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n有迹象表明所描述的管理流程能够实现安全更新的及时部署；以及\n已针对该流程的实施给出了确认（承诺）。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-9",
+      "source_clause_id": "5.3-9",
+      "test_case_id": "5.3-9-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试案例的目的是对软件更新的真实性（a）、完整性（b）和执行实体（c-d）的验证进行概念性评估。",
+      "test_units": "对于 IXIT 7-UpdMech 中的每一种更新机制，TL 应评估安装前软件更新的真实性是否得到了妥善验证（依据“Security Guarantees 安全保证”及对应的“Cryptographic Details 加密细节”），特别是要验证相对于其来源（制造商）和目标（被测设备 DUT）的原始性。\n注：这里的“原始性”指的是来源原始性（软件包确实出自厂家）和目标原始性（软件包确实是发给这台特定设备或型号的）\n注 1：关于软件更新相对于其来源和目标的原始性，有多种验证方法。\n注 2：DUT 对真实性的验证主要用于拒绝不可信的软件更新。\n对于 IXIT 7-UpdMech 中的每种更新机制，TL应依据“Security Guarantees 安全保证”及对应的“Cryptographic Details 加密细节”，评估软件更新的完整性是否得到适当验证。\n注 3：DUT 的完整性验证主要用于检测在合法的软件更新中被注入的恶意代码。\n对于 IXIT 7-UpdMech 中的每一种更新机制，TL 应核查真实性验证是否由被测设备（DUT）自身执行（依据“安全保证”）。\n对于 IXIT 7-UpdMech 中的每一种更新机制，TL 应核查完整性验证是否由被测设备（DUT）自身执行（依据“安全保证”）。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每个更新机制都能有效验证软件更新的真实性；且\n每个更新机制都能有效验证软件更新的完整性；且\n软件更新的真实性和完整性验证由 DUT 本身执行。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-11",
+      "source_clause_id": "5.3-11",
+      "test_case_id": "5.3-11-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例旨在对告知用户有关所需安全更新的方法和信息内容进行概念性评估。",
+      "test_units": "对于 IXIT 7-UpdMech 中的每种更新机制，测试实验室（TL）应根据“User Notification 用户通知”，评估告知用户安全更新可用性的方法是否易于辨识且显而易见。\n\n示例1：通过用户界面（UI）、推送消息或电子邮件发送的通知是易于辨识的。\n示例2：使用简短精炼的语言、大小合适的弹窗是显而易见的。\n对于 IXIT 7-UpdMech 中的每种更新机制，TL 应评估针对所需安全更新的用户通知是否包含了有关该更新所缓解风险的信息（依据“User Notification 用户通知”条目）。\n\n注：有些厂商在更新日志里只写一句话：“修复了已知 Bug”，这种其实不太合理，必须用消费者能懂的语言说明，写明更新所缓解风险的说明，比如“修复可能导致设备异常重启的问题”。",
+      "pass_criteria": "如果所有更新机制都通过，则结论为“通过”：\n告知用户所需安全性更新的方法是易于辨识且显而易见的；且\n关于所需安全性更新的通知中，包含了通过该更新所缓解的风险信息。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-12",
+      "source_clause_id": "5.3-12",
+      "test_case_id": "5.3-12-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试用例的目的是对“当软件更新具有破坏性（导致功能中断）时”的用户通知机制进行概念性评估。",
+      "test_units": "TL应检查 IXIT 7-UpdMech 中的每一种更新机制是否支持在发生破坏性软件更新（导致功能中断）时发出用户通知，并确认该通知是在 DUT 本身（设备端）实现的。",
+      "pass_criteria": "如果每种更新机制都满足以下要求，则结论为“通过”：\n用户能够获知软件更新期间基本功能被中断的相关信息；且\n用户通知是在 DUT 本身上实现的。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.3-13",
+      "source_clause_id": "5.3-13",
+      "test_case_id": "5.3-13-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试用例的目的是对“定义支持期”的发布情况进行概念性评估。",
+      "test_units": "TL应评估 IXIT 2-UserInfo 中关于“Publication of Support Period 支持期发布”的说明是否通俗易懂，即使是技术知识有限的用户也能理解（详见 D.3 条款）。\n示例：用户能够通过输入 DUT 的型号，在制造商网站上通过搜索引擎找到支持期限。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n软件更新支持期限的公开方式对于技术知识有限的用户来说是易于理解且清晰可查的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-13-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-14",
+      "source_clause_id": "5.3-14",
+      "test_case_id": "5.3-14-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试用例的目的是对“无法更新的原因”以及“硬件更换支持”的相关说明发布情况进行概念性评估。",
+      "test_units": "测试实验室（TL）应评估：IXIT 2-UserInfo 中记录的“不可更新说明（Publication of Non-Updatable）”和“更换文档（Documentation of Replacement）”的获取方式，对于技术知识有限的用户来说，是否是否通俗易懂。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n不可更新说明（Publication of Non-Updatable）”和“更换文档（Documentation of Replacement）”的理由对于技术知识有限的用户来说是易于理解且清晰可查的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-14-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-15",
+      "source_clause_id": "5.3-15",
+      "test_case_id": "5.3-15-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "9-ReplSup"
+      ],
+      "test_purpose": "本测试用例的目的是对 DUT 的隔离能力（a）和硬件更换支持（b）进行概念性评估。",
+      "test_units": "TL应评估 IXIT 9-ReplSup 中“隔离”所描述的方法是否适合隔离物联网产品，即将物联网产品从其所连接的网络中移除，或将物联网产品置于独立的环境中。\nTL应评估 IXIT 9-ReplSup 中 “硬件替换”所描述的方法是否适合对硬件进行替换。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所述方法适用于隔离物联网产品；以及\n所述方法适合替换硬件。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-15-2"
+      ]
+    },
+    {
+      "clause_id": "5.3-16",
+      "source_clause_id": "5.3-16",
+      "test_case_id": "5.3-16-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试案例的目的是对型号名称进行概念评估。",
+      "test_units": "TL 应评估：根据 IXIT 2-UserInfo 中的“型号名称”描述，是否可以通过设备标签（Labelling）或物理接口（Physical interface），以清晰可辨的方式获取被测设备的型号名称。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n能够通过设备标签或物理接口清晰地辨识并获取 DUT 的型号名称。\n注：物理接口：包含网络接口（WIFI、Ethernet）、调试接口（JTAG、UART）、其他（USB、NFC）。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.3-16-2"
+      ]
+    },
+    {
+      "clause_id": "5.4-1",
+      "source_clause_id": "5.4-1",
+      "test_case_id": "5.4-1-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam",
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试案例的目的是对敏感安全参数的安全存储进行概念性评估，涉及安全要求 (a-c) 和 IXIT 文档的完整性 d)。",
+      "test_units": "TL 应评估：IXIT 10-SecParam 中每个敏感安全参数的“类型（Type）”声明是否与其“描述（Description）”一致。\nTL 应评估：IXIT 10-SecParam 中每个敏感安全参数的“安全保证（Security Guarantees）”是否至少匹配其“类型（Type）”所指示的保护需求。\n注 1：关键安全参数需要完整性和保密性保护，而公共安全参数只需要完整性保护。\nTL 应评估：IXIT 10-SecParam 中提供的每个敏感安全参数的“保护方案（Protection Scheme）”是否能提供所声称的“安全保证（Security Guarantees）”。\n注 2：如果使用了安全元件（Secure Element, SE），考虑使用外部证据（参见条款 4.7）来（部分地）覆盖本条款的要求。\nTL 应评估：应通过考虑其他所有 IXIT 中提供的有关敏感安全参数的信息，来评估 IXIT 10-SecParam 中敏感安全参数的完整性。\n示例：如果 IXIT 1-AuthMech（身份鉴别机制）中描述了认证机制，那么核查 IXIT 10-SecParam 中是否列出了相应加密参数将有助于收集线索。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每个敏感安全参数的声明与其描述一致；且\n每个敏感安全参数所声称的安全保证与其最低保护需求相匹配；且\n每个敏感安全参数都具备适用于其声称的安全保证的保护机制；且\n没有迹象表明所列敏感安全参数不完整。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.4-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.4-2",
+      "source_clause_id": "5.4-2",
+      "test_case_id": "5.4-2-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam"
+      ],
+      "test_purpose": "本测试用例的目的是对硬编码身份的防篡改存储（Tamper-resistant storage）进行概念性评估。",
+      "test_units": "测试实验室（TL）应检查 IXIT 10-SecParam 中的每个敏感安全参数：如果“描述”指出其被用作硬编码身份，那么该参数是否提供了相应的明确说明。\nTL应评估：IXIT 10-SecParam 中每个硬编码身份对应的“安全保证（Security Guarantees）”是否提供了防篡改能力。\n注 1：防篡改是指针对物理、电气和软件手段的保护。\n注 2：如果使用了安全元件（Secure Element），可考虑利用外部证据（参见第 4.7 条款）来（部分）覆盖本条款的规定。\nTL应评估：IXIT 10-SecParam 中每个硬编码身份的“保护方案（Protection Scheme）”是否针对防篡改提供了所声称的“安全保证”。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n没有任何迹象表明硬编码身份未被记录；且\n所有硬编码身份的安全保证均包含防篡改；且\n每个硬编码身份都有适用于防篡改的保护机制。\n否则将结论为“失败”。",
+      "functional_case_ids": [
+        "5.4-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.4-3",
+      "source_clause_id": "5.4-3",
+      "test_case_id": "5.4-3-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam"
+      ],
+      "test_purpose": "本测试用例的目的是对硬编码关键安全参数（CSP）进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应检查 IXIT 10-SecParam 中提供的所有关键安全参数：如果“Provisioning Mechanism 配置机制”表明它是硬编码在设备软件源代码中的，那么该事实是否已在“Description 描述”中体现。\nTL 应评估：对于 IXIT 10-SecParam 中根据“Description 描述”属于硬编码在源代码中的所有关键安全参数，其对应的“Provisioning Mechanism 配置机制”是否确保了在 DUT 运行期间不会使用这些参数。\n注：根据 ETSI TS 103 645[1]/ETSI EN 303 645 [2]中关键安全参数的定义，泄露或修改此类参数会危及 DUT 的安全性。仅危及其他资产（如知识产权）的参数不属于此定义范畴。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n没有迹象表明设备软件源代码中硬编码的任何关键安全参数未记录在案；以及\n对于所有硬编码在源代码中的 CSP，“配置机制”确保了它们在 DUT 运行期间不会被使用。\n否则结论为“失败”。\n注：标准允许源代码里存在某些静态参数，但前提是：它们只是“模板”或“占位符”，在设备真正跑起来（运行期）时，必须被唯一的值替换掉，如源代码里写了一个 PASSWORD = \"123456\"，但设备在出厂第一次启动时，配置程序会要求用户手动设置强随机密码并把这个\"123456\"覆盖掉，注意公钥（PSP）、DRM密钥写死在代码里是允许的。\n注：区分一下5.4-2和5.4-3：5.4-2允许的硬编码是在设备底层/硬件中，针对的是“硬编码的设备唯一身份”， 5.4-3 严禁的硬编码是在软件源代码中。",
+      "functional_case_ids": [
+        "5.4-3-2"
+      ]
+    },
+    {
+      "clause_id": "5.4-4",
+      "source_clause_id": "5.4-4",
+      "test_case_id": "5.4-4-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam"
+      ],
+      "test_purpose": "本测试用例的目的是对用于“软件更新完整性与真实性校验”以及“相关服务通信保护”的关键安全参数（CSP）的生成机制进行概念性评估。",
+      "test_units": "TL 应检查 IXIT 10-SecParam 中提供的所有“关键安全参数”。如果其“Description 描述”项表明这些参数用于软件更新的完整性和真实性校验，或用于保护与关联服务的通信，则该参数必须在“Generation Mechanism 生成机制”文档中有相应说明。\nTL 应针对 IXIT 10-SecParam 中提供的所有“关键安全参数”进行评估，确认其“Generation Mechanism 生成机制”是否能确保该参数在每个设备上都是唯一的，并且其生成方式能降低针对同类设备的自动化攻击风险。\n注 1：用于生成关键安全参数且已通过认证（例如符合《欧洲网络安全法》适用方案）的随机数生成器，可被视为具有足够的熵源。\n注 2：定制化方案（例如未经认证的）也可能为被测设备（DUT）的使用场景提供足够的熵。\n注 3：生成机制在特定用例下被广泛接受的程度，取决于专业领域内的共识。标准化机制（如 NIST 标准）共识度最高。标准化机构（如 NIST 的密码算法验证计）、Mozilla 的 TLS 配置指南，以及 KeyLength 目录（索引了 NIST、ANSSI、BSI 等发布的密钥长度标准）都是评估生成机制适用性的公开参考资源。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所有在“Description 描述”中表明其用途为“用于软件更新的完整性和真实性校验”或“用于保护与相关服务间通信”的关键安全参数，均已在“Generation Mechanism 生成机制”中进行了相应的记录；且\n针对所有关键安全参数，“Generation Mechanism 生成机制”能确保参数在设备间唯一，并采用能降低针对同类设备自动化攻击风险的机制。\n注：如由产线服务器统一分配，或基于每台芯片的唯一 ID（如 UID/SID）进行哈希派生\n否则结论为 FAIL。\n\n技术规范 5.5：安全通信",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.5-1",
+      "source_clause_id": "5.5-1",
+      "test_case_id": "5.5-1-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试案例的目的是对通信机制所使用的加密技术进行概念性评估，包括是否使用了最佳实践密码学（a-c）以及是否容易受到可行攻击（d）。",
+      "test_units": "对于 IXIT 11-ComMech 中的每个通信机制，TL（实验室）应评估其“安全保证（Security Guarantees）”是否适用于该通信用例。\n对于 IXIT 11-ComMech 中的每个通信机制，TL 应评估其“描述（Description）”所记录的机制是否足以实现所述的“安全保证”。\n注 1：需要采用综合方法来评估通信机制的安全性。\n对于 IXIT 11-ComMech 中的每个通信机制，TL 应评估其“加密细节（Cryptographic Details）”根据参考目录是否被视为针对该安全通信用例的最佳实践加密技术。如果“加密细节”未包含在相应参考目录中（例如新型加密算法），则 SO（厂商）应提供证据（如风险分析）来证明该加密技术对于该用例是最佳实践。在这种情况下，TL 应评估这些证据对于该用例是否适当且可靠。\n注 2：ETSI TR 103 621 中提供了基于用例的最佳加密实践示例清单。此外，还有一些关于密码学最佳实践的通用参考目录，例如：SOGIS 商定的加密机制 (https://www.sogis.eu)。\n注 3：如果某种加密算法或原语在其所需的安全属性方面已过时（例如用于抗碰撞的 SHA1），或者依赖于不恰当的加密参数（如密钥大小），且未考虑到 DUT 的预期寿命和加密敏捷性（Cryptoagility），则不能被视为最佳实践加密技术。\n对于 IXIT 11-ComMech 中的每个通信机制，TL 应评估通过参考权威的密码分析报告，其“加密细节”在实现所述“安全保证”时，是否存在已知可被可行攻击利用的漏洞。\n注 4：权威的密码分析报告通常发表在科学文献中，或者由 SO 提供。此外，D.2 章节提供了关于“基础级（Level basic）”预期攻击潜力的信息。",
+      "pass_criteria": "如果所有通信机制都能满足以下条件，则结论为“通过”：\n安全保证适用于安全通信用例；且\n机制足以实现针对该用例的安全保证；且\n所有使用的加密细节均被视为该用例的最佳实践；且\n所有使用的加密细节都不会受到针对特定安全属性的可行攻击。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-2",
+      "source_clause_id": "5.5-2",
+      "test_case_id": "5.5-2-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "12-NetSecImpl"
+      ],
+      "test_purpose": "本测试案例的目的是对网络和安全功能的实施进行概念评估，涉及审查和评估。",
+      "test_units": "对于 IXIT 12-NetSecImpl 中的每个实现，测试实验室（TL）应检查其是否已根据“评审/评估方法（Review/Evaluation Method）”进行了评审或评估。\n对于与 IXIT 12-NetSecImpl 中与某项实现相关联的每一项审查或评估方法，测试实验室应评估该“审查/评估方法（Review/Evaluation Method）”及其“报告（Report）”是否覆盖了“描述（Description）”中所述的相关实现范围。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n网络和安全功能的所有实现均已经过审查或评估；且\n所有的审查和评估方法均覆盖了相关实现的作用范围。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-3",
+      "source_clause_id": "5.5-3",
+      "test_case_id": "5.5-3-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "6-SoftComp",
+        "7-UpdMech"
+      ],
+      "test_purpose": "本测试案例的目的是对提供密码学算法和原语的实现进行关于“可更新性”的概念性评估。",
+      "test_units": "对于 IXIT 6-SoftComp 中标明“密码学用途（Cryptographic Usage）”的每个软件组件，测试实验室（TL）应检查其是否关联引用了“更新机制（Update Mechanism）”。\n对于 IXIT 6-SoftComp 中标明“密码学用途（Cryptographic Usage）”的每个软件组件，TL 应检查厂商是否考虑了更新这些算法和原语可能带来的副作用。\n注： 典型的副作用包括现有的数据结构或硬件与新的密码学算法不兼容。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每一个标记为密码学用途的软件组件都引用了相应的更新机制；且\n厂商已经考虑了更新这些算法和原语的副作用。\n否则将结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.5-4",
+      "source_clause_id": "5.5-4",
+      "test_case_id": "5.5-4-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "13-SoftServ",
+        "1-AuthMech"
+      ],
+      "test_purpose": "本测试用例的目的是对初始化状态下通过网络接口访问的设备功能，就其身份鉴别与授权进行概念性评估。注：“初始化状态”指的是：设备已经完成了开箱后的首次设置（如配置了Wi-Fi、更改了默认初始密码、绑定了用户App、创建了多账户等），正处于日常正常工作的状态（见 EN 303645 附录图A.4）。",
+      "test_units": "对于 IXIT 13-SoftServ 中根据“描述（Description）”指出在初始化状态下可通过网络接口访问的每个设备功能，测试实验室（TL）应当检查是否至少引用了一个“身份验证机制（Authentication Mechanism）”。\n对于 IXIT 13-SoftServ 中引用的每个“身份验证机制（Authentication Mechanism）”，测试实验室（TL）应当评估 IXIT 1-AuthMech 中描述的身份验证机制是否允许区分多个身份验证主体，并且是否能够根据无效的身份和/或身份验证因素拒绝身份验证尝试。\n注意：区分通常是基于唯一的身份和/或身份验证因素来进行的。\n对于 IXIT 13-SoftServ 中引用的每个“身份验证机制（Authentication Mechanism）”，测试实验室（TL）应当评估 IXIT 1-AuthMech 的“密码学细节（Cryptographic Details）”中保护该身份验证机制的手段是否提供了为该机制确定的“安全保证（Security Guarantees）”，并且是否能够抵御企图破坏该机制的尝试。\n对于 IXIT 13-SoftServ 中引用的每个“身份验证机制（Authentication Mechanism）”，测试实验室（TL）应当评估 IXIT 1-AuthMech 的“描述（Description）”中阐述的授权流程是否允许拥有适当访问权限的已验证主体获得访问权限，并拒绝访问权限不足的已验证主体或未经验证的主体获得访问权限。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于在初始化状态下可通过网络接口访问的每个设备功能，至少引用了一个身份验证机制；且\n每个身份验证机制都允许区分多个身份验证主体，并能根据无效的身份和/或身份验证因素拒绝身份验证尝试；且\n用于保护身份验证机制的手段提供了预期的安全保证，并且能够抵御企图破坏该机制的尝试；且\n每个授权机制都允许拥有适当访问权限的已验证主体进行访问；且\n每个授权机制都拒绝访问权限不足的已验证主体以及未经验证的主体进行访问。\n注：区分一下身份鉴别和授权：身份鉴别验证的是身份真实性（是否有这个用户），授权验证的是用户权限（如非管理员用户是否能改配置？）\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-4-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-5",
+      "source_clause_id": "5.5-5",
+      "test_case_id": "5.5-5-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "13-SoftServ"
+      ],
+      "test_purpose": "本测试用例的目的是对允许通过网络接口进行安全相关配置变更的设备功能，就其身份鉴别与授权进行概念性评估。",
+      "test_units": "测试实验室（TL）应针对被测设备（DUT）的所有状态（for all states of the DUT），应用测试用例 5.5-4-1 中规定的所有测试单元，但仅限于根据 IXIT 13-SoftServ 中“允许配置（Allows Configuration）”一栏所说明的、允许进行安全相关变更的功能。被测设备（DUT）所依赖的、且制造商无法保证其运行所需配置的网络服务协议均除外。\n注：旨在启用无需鉴别即可进行外部配置的网络服务协议（例如 DHCP）不属于本条款范畴。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于可通过网络接口访问且允许进行安全相关更改的每个设备功能，至少引用了一个身份验证机制；且\n每个身份验证机制都允许区分多个身份验证主体，并能根据无效的身份和/或身份验证因素拒绝身份验证尝试；且\n用于保护身份验证机制的手段提供了预期的安全保证，并且能够抵御企图破坏该机制的尝试；且\n每一个授权机制均允许具备适当访问权限的已鉴别主体进行访问；且\n每一个授权机制均拒绝访问权限不足的已鉴别主体以及未鉴别的主体。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-5-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-6",
+      "source_clause_id": "5.5-6",
+      "test_case_id": "5.5-6-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam",
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试案例的目的是对用于通信关键安全参数的加密技术进行概念性评估。",
+      "test_units": "对于 IXIT 10-SecParam 中任何关键安全参数所引用的 IXIT 11-ComMech 中的所有“通信机制（Communication Mechanisms）”，测试实验室（TL）应当应用测试用例 5.5-1-1 中指定的所有测试单元，并加以限制：即至少需要满足机密性（Confidentiality）这一安全保证。",
+      "pass_criteria": "如果所有用于重要通信安全参数的通信机制满足下列条件，则结论为“通过”：\n安全性保证适用于安全通信用例；且\n机制足以实现针对该用例的安全性保证；且\n所有使用的加密细节均被视为该用例的最佳实践；且\n所有使用的加密细节均未发现存在针对所述安全属性的可行攻击漏洞。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-6-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-7",
+      "source_clause_id": "5.5-7",
+      "test_case_id": "5.5-7-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "10-SecParam",
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试用例的目的是对通过远程可访问的网络接口传输关键安全参数所使用的加密技术进行概念性评估。",
+      "test_units": "对于 IXIT 10-SecParam 中任何关键安全参数所引用的、且根据 IXIT 11-ComMech 中的“描述（Description）”属于远程可访问的所有“通信机制（Communication Mechanisms）”，测试实验室（TL）应当应用测试用例 5.5-1-1 中指定的所有测试单元，并加以限制：即至少需要满足机密性（Confidentiality）这一安全保证。",
+      "pass_criteria": "若通过远程可访问的网络接口传输关键安全参数的所有通信机制均满足以下条件，则结论为“通过”：\n安全性保证适用于安全通信用例；且\n就该使用场景而言，其机制适用于实现所述安全保证；且\n所有使用的加密细节均被视为该用例的最佳实践；且\n所有使用的加密细节都不会受到可行的攻击。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.5-7-2"
+      ]
+    },
+    {
+      "clause_id": "5.5-8",
+      "source_clause_id": "5.5-8",
+      "test_case_id": "5.5-8-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "14-SecMgmt",
+        "4-Conf"
+      ],
+      "test_purpose": "本测试案例的目的是对安全管理流程进行概念性评估，涉及参数生命周期的覆盖范围 a)，并确认实施的先决条件得到保证 b)。",
+      "test_units": "测试实验室 (TL) 应根据 IXIT 14-SecMgmt 中的流程，评估关键安全参数 (CSP) 的安全管理是否覆盖了整个生命周期，并考虑其：\n生成；以及\n分发；以及\n存储；以及\n更新；以及\n停用、归档和销毁；以及\n处理过期和泄露的流程；\nTL应检查 IXIT 4-Conf 中的“安全管理确认（Confirmation of Secure Management）”是否说明已确认。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n根据其流程，安全管理覆盖了关键安全参数的整个生命周期；以及\n确认执行。\n否则将结论为“失败”。\n技术规范 5.6：尽量减少暴露的攻击面",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.6-1",
+      "source_clause_id": "5.6-1",
+      "test_case_id": "5.6-1-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "15-Intf"
+      ],
+      "test_purpose": "该测试案例的目的是对 DUT 的网络和逻辑接口进行概念性评估。",
+      "test_units": "对于 IXIT 15-Intf 中根据“状态（Status）”描述为“已启用（enabled）”的每个网络和逻辑接口，测试实验室（TL）应评估“描述（Description）”中的接口用途是否为该接口的启用提供了合理的理由（valid justification）。",
+      "pass_criteria": "如果出现以下情况，则结论“通过”：\n对于 IXIT 文档中标记为已启用的每个网络或逻辑接口，都存在一个为其启用提供合理理由的用途。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.6-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.6-2",
+      "source_clause_id": "5.6-2",
+      "test_case_id": "5.6-2-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "15-Intf"
+      ],
+      "test_purpose": "本测试用例的目的是对初始化状态下，网络接口在未经身份鉴别的情况下披露的信息进行概念性评估。",
+      "test_units": "对于 IXIT 15-Intf 中的每个网络接口，测试实验室（TL）应当评估该接口在初始化状态下、未经身份验证时公开的，且被（厂商）指出为与安全无关的“已公开信息（Disclosed Information）”，实际是否与安全相关。\n对于 IXIT 15-Intf 中的每个网络接口，测试实验室（TL）应当评估该接口在初始化状态下、未经身份验证时公开的，且被（厂商）指出为“与安全相关”的“已公开信息（Disclosed Information）”，对于被测设备（DUT）的运行是否必不可少。",
+      "pass_criteria": "若对于每个网络接口均满足以下条件，则判定为“通过”：\n该接口在初始化状态下、未经身份验证时公开的每一个与安全相关的信息，均已在文档中如实记录；且\n该接口在初始化状态下、未经身份验证时公开的所有与安全相关的信息，对于被测设备（DUT）的运行而言都是必需的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.6-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.6-3",
+      "source_clause_id": "5.6-3",
+      "test_case_id": "5.6-3-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "15-Intf"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的物理接口进行概念评估，包括一般不需要暴露的接口（a-b）和不需要永久暴露的接口（c）。",
+      "test_units": "对于 IXIT 15-Intf 中的每个根据“描述（Description）”不需要暴露的物理接口，测试实验室（TL）应当评估“保护（Protection）”项中的接口保护手段是否包含设备外壳保护或类似措施。\n注： 对于无线接口，天线部分留在设备外壳之外是可以接受的。\n对于 IXIT 15-Intf 中根据“描述（Description）”不需要暴露的每个无线接口，TL 应检查该接口根据“状态（Status）”是否为已禁用。\n对于 IXIT 15-Intf 中的每个根据“描述（Description）”不需要永久暴露的物理接口，测试实验室（TL）应当检查在不需要使用该接口的所有期间内，该接口根据“状态（Status）”是否已被禁用。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于每一个不需要暴露的物理接口，其保护手段包括设备外壳保护或类似措施；且\n对于每一个不需要暴露的无线接口，该接口已被禁用；且\n对于每一个不需要永久暴露的物理接口，在不需要使用的所有时段内，该接口均被禁用。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.6-3-2"
+      ]
+    },
+    {
+      "clause_id": "5.6-4",
+      "source_clause_id": "5.6-4",
+      "test_case_id": "5.6-4-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "15-Intf"
+      ],
+      "test_purpose": "该测试案例的目的是对 DUT 的物理可访问调试接口进行概念性评估。",
+      "test_units": "对于 IXIT 15-Intf 中根据“调试接口（Debug Interface）”被描述为可触及调试接口的每个物理接口，测试实验室（TL）应当评估“保护（Protection）”项中的接口保护手段是否包含一个用于禁用该接口的软件机制。\n对于 IXIT 15-Intf 中被描述为可触及调试接口，且根据“描述（Description）”未被指出为间歇性必需的每个物理接口，测试实验室（TL）应当检查该接口根据“状态（Status）”是否已被永久禁用。\n对于 IXIT 15-Intf 中被描述为可触及调试接口，且根据“描述（Description）”被指出为间歇性必需的每个物理接口，测试实验室（TL）应当检查该接口根据“状态（Status）”在默认情况下是否已被禁用。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于每一个可触及的物理调试接口，均描述了用于禁用该接口的软件机制；且\n对于每一个未被指出为间歇性必需的可触及物理调试接口，该接口已被永久禁用；且\n对于每一个被指出为间歇性必需的可触及物理调试接口，该接口在默认情况下已被禁用。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.6-4-2"
+      ]
+    },
+    {
+      "clause_id": "5.6-5",
+      "source_clause_id": "5.6-5",
+      "test_case_id": "5.6-5-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "13-SoftServ"
+      ],
+      "test_purpose": "本测试用例的目的是对已启用服务关于被测设备（DUT）的预期用途或运行进行概念性评估。",
+      "test_units": "对于 IXIT 13-SoftServ 中根据“状态（Status）”描述为“默认启用（enabled by default）”的每个软件服务，测试实验室（TL）应根据“描述（Description）”和启用该服务的“理由（Justification）”，评估该服务对于 DUT 的预期用途或运行是否属于必要（necessary）。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于每一项默认启用的软件服务，该服务对于 DUT 的预期用途或操作都是必要的。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.6-6",
+      "source_clause_id": "5.6-6",
+      "test_case_id": "5.6-6-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "16-CodeMin"
+      ],
+      "test_purpose": "本测试案例的目的是对代码最小化技术进行概念性评估。",
+      "test_units": "TL应评估 IXIT 16-CodeMin 中的代码最小化技术是否适合将代码减少到必要的功能。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所描述的代码最小化技术适合于将代码减少到必要的功能。\n注：常用方法为编译器优化、依赖项修剪等，代码不太可能被无限精简，代码最小化的努力是否与安全风险的降低成正比即可。\n否则将结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.6-7",
+      "source_clause_id": "5.6-7",
+      "test_case_id": "5.6-7-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "17-PrivlCtrl"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的权限控制机制进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 17-PrivlCtrl 中所有用于控制 DUT 上软件权限的机制，是否共同促进了职责分离、知其所需和最小特权原则。",
+      "pass_criteria": "如果出现以下情况，则结论 “通过”：\n所描述的权限控制机制足以促进职责分离、知其所需和最小特权原则。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.6-8",
+      "source_clause_id": "5.6-8",
+      "test_case_id": "5.6-8-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "18-AccCtrl"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 内存访问控制的硬件级机制进行概念评估。",
+      "test_units": "对于 IXIT 18-AccCtrl 中记录的每个内存硬件级访问控制机制，测试实验室 (TL) 应评估该机制是否在硬件层面实现。\n注： 在硬件层面实现可以包括嵌入在硬件中的软件（即固件）。\n对于 IXIT 18-AccCtrl 中记录的每个内存硬件级访问控制机制，TL 应评估该机制是否允许控制对内存的访问。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n对于每一种硬件级内存访问控制机制，该机制都是在硬件层面实现的；以及\n对于每一种硬件级内存访问控制机制，该机制都允许对内存的访问进行控制。\n注：常见有：MMU (Memory Management Unit): 常见于运行 Linux 的高级 SoC，通过页表提供进程间的隔离；MPU (Memory Protection Unit): 常见于低功耗单片机（如 ARM Cortex-M），虽然没有虚拟内存，但可以将 Flash 或 RAM 划分为“仅读”、“禁止执行”等区域；TEE (可信执行环境) 与 TrustZone，即使获取Root，也无法物理访问安全内存区域（Secure RAM）\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.6-9",
+      "source_clause_id": "5.6-9",
+      "test_case_id": "5.6-9-1",
+      "origin_module": "M1",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "19-SecDev",
+        "4-Conf"
+      ],
+      "test_purpose": "本测试用例的目的是对安全开发流程进行概念性评估 (a)，并确认实现的先决条件已得到确保 (b)。",
+      "test_units": "TL 应根据 IXIT 19-SecDev 中的流程，评估软件的安全开发是否包括：\n对开发人员进行安全培训；以及\n软件的需求和设计阶段；以及\n安全编码技术；以及\n实施阶段的安全工具；以及\n安全测试；以及\n安全审查；以及\n与维护软件安全有关的资产和信息的存档；以及\n安全部署；以及\n第三方软件供应商的处理\n注： 仅当第三方软件供应商是开发流程的一部分时，对其的处理才相关。\nTL应检查 IXIT 4-Conf 中的“安全开发确认”是否说明已确认。",
+      "pass_criteria": "如果安全开发涵盖以下内容，则结论为“通过”：\n对开发人员进行安全培训；以及\n软件的需求和设计阶段；以及\n安全编码技术；以及\n实施阶段的安全工具；以及\n安全测试；以及\n安全审查；以及\n与维护软件安全有关的资产和信息的存档；以及\n安全部署；以及\n如适用）第三方软件供应商的处理；以及\n确认执行。\n否则结论为“失败”。\n技术规范 5.7：确保软件的完整性",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.7-1",
+      "source_clause_id": "5.7-1",
+      "test_case_id": "5.7-1-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "20-SecBoot"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的安全启动机制进行概念性评估。",
+      "test_units": "测试实验室（TL）应评估 IXIT 20-SecBoot 中每个安全启动机制的“安全保证（Security Guarantees）”是否至少提供了对设备软件完整性和真实性的验证。\nTL 应评估对于 IXIT 20-SecBoot 中的每个安全启动机制，“描述（Description）”和对应的“检测机制（Detection Mechanisms）”是否适用于提供所使用的“安全保证”。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n每个安全启动机制都为设备软件的完整性和真实性提供安全保证；以及\n每个安全启动机制及其检测机制都适用于提供所述的安全保证。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.7-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.7-2",
+      "source_clause_id": "5.7-2",
+      "test_case_id": "5.7-2-1",
+      "origin_module": "M4",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "20-SecBoot"
+      ],
+      "test_purpose": "本测试用例的目的是在检测到未经授权的软件变更时，对警示机制 (a) 和限制通信机制 (b) 进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估“用户通知 (User Notification)”的方法（包括其包含的信息）是否足以通知用户和/或管理员设备软件发生了未经授权的变更。\nTL 应评估 IXIT 20-SecBoot 中的每个“通知功能 (Notification Functionality)”对于所述的“用户通知”方法是否是必要的。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n所描述的用户通知方式足以通知用户和/或管理员设备软件发生了未经授权的变更；且\n在检测到未经授权的软件变更时，每一个描述的通知功能对于用户通知都是必要的。\n否则结论为“失败”。\n注：此处的通知通常是设备指示灯、蜂鸣器、屏幕显示，或者APP等",
+      "functional_case_ids": [
+        "5.7-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.8-1",
+      "source_clause_id": "5.8-1",
+      "test_case_id": "5.8-1-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "21-PersData",
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试用例的目的是对设备与服务之间通信个人数据时所使用的密码技术进行概念性评估。\n注：这里的服务指的是厂商的互联网服务器或云平台提供的服务",
+      "test_units": "对于 IXIT 21-PersData 中引用的任何个人数据所涉及的 IXIT 11-ComMech 中的所有“通信机制”，测试实验室（TL）应应用测试用例 5.5-1-1 中指定的所有测试单元，但有一个限制条件：必须满足至少机密性的安全保证。\n注：在这种情况下，安全保证“机密性”是指针对未经授权方的机密性保护。这可以包括对通信伙伴的真实性验证（Authenticity verification）。",
+      "pass_criteria": "如果用于传输个人数据的所有通信机制都满足下列要求：则结论为“通过”：\n安全保证适用于通信个人数据的用例；且 注：目标匹配（保护机密性）\n该机制适用于实现该用例下的安全保证；且 注：工具算法匹配\n所有使用的密码技术细节均被视为该用例下的最佳实践（Best practice）；且\n所有使用的密码技术细节均不存在已知的可行攻击漏洞。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.8-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.8-2",
+      "source_clause_id": "5.8-2",
+      "test_case_id": "5.8-2-1",
+      "origin_module": "M3",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "21-PersData",
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试案例的目的是对用于在设备和相关服务之间传输敏感个人数据的加密技术进行概念性评估。",
+      "test_units": "对于 IXIT 21-PersData 中根据“敏感（Sensitive）”一栏所引用的、且通信伙伴为关联服务的任何敏感个人数据所涉及的 IXIT 11-ComMech 中的所有“通信机制”，测试实验室（TL）应应用测试用例 5.5-1-1 中指定的所有测试单元，但有一个限制条件：必须满足至少机密性的安全保证。\n注：在这种情况下，安全保证“机密性”是指针对未经授权方的机密性保护。这可以包括对通信伙伴的真实性验证。",
+      "pass_criteria": "若所有用于设备与关联服务之间通信敏感个人数据的通信机制均符合以下条件，那么结论为“通过”：\n安全保证适用于通信敏感个人数据的用例；且\n该机制适用于实现该用例下的安全保证；且\n所有使用的密码技术细节均被视为该用例下的最佳实践（Best practice）；且\n所有使用的密码技术细节均不存在已知的可行攻击漏洞。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.8-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.9-1",
+      "source_clause_id": "5.9-1",
+      "test_case_id": "5.9-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "23-ResMech"
+      ],
+      "test_purpose": "本测试用例的目的是对针对网络和电源中断的弹性机制进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 23-ResMech 中的弹性机制组合，是否适合根据“安全保证（Security Guarantees）”来防护网络连接和电源中断。\n对于 IXIT 23-ResMech 中的每一个弹性机制，TL 应评估其是否能够根据“描述（Description）”，实现相应的“安全保证（Security Guarantees）”。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n弹性机制足以抵御网络连接和电力中断；且\n每一项弹性机制均足以实现其安全保障。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.9-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.9-2",
+      "source_clause_id": "5.9-2",
+      "test_case_id": "5.9-2-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "23-ResMech"
+      ],
+      "test_purpose": "本测试用例的目的是对有关网络和电力中断的弹性机制进行概念评估（a项），以及评估网络中断期间的运行情况（b项）和电力中断后的恢复情况（c项）。",
+      "test_units": "测试实验室 (TL) 应应用测试用例 5.9-1-1 中针对 IXIT 23-ResMech 中弹性机制所指定的所有测试单元。\nTL 应评估 IXIT 23-ResMech 中根据“类型（Type）”定义的网络连接中断防护弹性机制，是否足以确保被测设备（DUT）在失去网络连接的情况下仍能保持运行并实现本地功能。\nTL 应评估 IXIT 23-ResMech 中根据“类型（Type）”定义的电力中断防护弹性机制，是否足以确保 DUT 在断电后能够以相同或更好的状态恢复连接性和功能性。",
+      "pass_criteria": "如果出现以下情况，则结论 “通过”：\n弹性机制足以抵御网络连接和电力中断；且\n每一项弹性机制均足以实现其安全保障；且\n弹性机制足以确保 DUT 在失去网络连接的情况下仍能保持运行并具备本地功能；且\n弹性机制足以确保 DUT 在断电后能够顺利恢复（以相同或更好的状态恢复连接性和功能性）。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.9-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.9-3",
+      "source_clause_id": "5.9-3",
+      "test_case_id": "5.9-3-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试案例的目的是对通信机制的弹性措施进行概念评估。",
+      "test_units": "对于 IXIT 11-ComMech 中的每种通信机制，测试实验室（TL）应评估其“弹性措施（Resilience Measures）”是否足以在考虑到基础设施能力的情况下，以有序的方式实现网络连接。\n注 1：实现有序连接的一种适当措施是遵循合适的初始化和终止标准。\n注：这里基于TCP/IP协议即符合（遵循 RFC 标准的协议栈，提供了有序建立连接的适当措施），其应用层协议如 TLS/SSH 也会 自带状态机（State Machine）和有序序列。\n对于 IXIT 11-ComMech 中的每一种通信机制，TL 应评估其“弹性措施（Resilience Measures）”是否足以在考虑到基础设施能力的情况下，支持稳定网络的运行。\n注 2:支持稳定网络的一种适当措施是防止同时发生的大规模重连。这可以通过从给定列表中连接到随机服务器（负载均衡）或在重连时使用随机延迟（Random delay）来实现。",
+      "pass_criteria": "如果出现以下情况，则结论“通过”：\n每一种通信机制都提供了适当的措施来实现有序的网络连接；且\n每一种通信机制都提供了适当的措施来支持稳定网络的运行。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.9-3-2"
+      ]
+    },
+    {
+      "clause_id": "5.10",
+      "source_clause_id": "5.10-1",
+      "test_case_id": "5.10-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "24-TelData"
+      ],
+      "test_purpose": "本测试案例的目的是对安全异常检查进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应检查 IXIT 24-TelData 中是否提供了至少一项用于检查安全异常的“安全检查（Security Examination）。\n对于 IXIT 24-TelData 中遥测数据的每一项“安全检查”，TL 应评估“描述（Description）”中关联的遥测数据是否适用于所述的安全检查，以及是否适用于检查该数据中是否存在安全异常。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n提供了至少一项安全异常检查方案；且\n每一项安全异常检查方案均适用于检查相关遥测数据中的安全异常。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "5.11-1",
+      "source_clause_id": "5.11-1",
+      "test_case_id": "5.11-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "25-DelFunc",
+        "10-SecParam",
+        "21-PersData"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的用户数据清除功能进行概念性评估。",
+      "test_units": "测试实验室（TL）应根据 IXIT 25-DelFunc 评估是否提供了至少一种功能，该功能可由技术知识有限的用户（参见条款 D.3）根据“描述”以及“启动与交互”来执行，以根据“目标类型”从设备中擦除用户数据。\nTL 应评估 IXIT 25-DelFunc 中的每项功能是否足以从设备中擦除目标用户数据。\n注 1：擦除可以通过使用预定义值进行重写覆盖（Overwriting），或通过内部不可逆地屏蔽对设备上所有数据的访问来实现。\nTL 应评估 IXIT 25-DelFunc 中擦除用户数据的功能是否涵盖了个人数据、用户配置以及用户相关的密码学材料。\n注 2：IXIT 10-SecParam、IXIT 21-PersData 及其他 IXIT 中的信息有助于识别用户数据。\n注 3：密码学材料可以是用户口令或密钥。",
+      "pass_criteria": "如果设备上未存储用户数据，则结论为“通过”；或\n向用户提供了至少一种用于从设备擦除用户数据的简单功能；且\n所描述的功能足以从设备中擦除目标用户数据；且\n擦除用户数据的功能涵盖了个人数据、用户配置以及密码学材料。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.11-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.11-2",
+      "source_clause_id": "5.11-2",
+      "test_case_id": "5.11-2-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "25-DelFunc",
+        "21-PersData"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的个人数据删除功能进行概念性评估。",
+      "test_units": "对于 IXIT 25-DelFunc 中的所有删除功能，测试实验室（TL）应评估是否提供了至少一种功能，该功能可由技术知识有限的用户（参见条款 D.3）根据“描述（Description）”以及“启动与交互（Initiation and Interaction）”，按照“目标类型（Target Type）”删除存储在关联服务上的所有个人数据。\nTL 应评估 IXIT 21-PersData 中“处理活动（Processing Activities）”所列出的所有存储个人数据的关联服务，是否均被 IXIT 25-DelFunc 中所有删除功能的组合所覆盖。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n向用户提供了至少一种用于从关联服务中删除个人数据的简单功能；且\n每一个存储个人数据的关联服务都已被简单的删除功能所涵盖。\n否则将结论为 “失败”。",
+      "functional_case_ids": [
+        "5.11-2-2"
+      ]
+    },
+    {
+      "clause_id": "5.12-1",
+      "source_clause_id": "5.12-1",
+      "test_case_id": "5.12-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "26-UserDec"
+      ],
+      "test_purpose": "本测试用例的目的是对用户需采取的安装和维护决策进行概念性评估。",
+      "test_units": "对于 IXIT 26-UserDec 中的每一项决策，测试实验室（TL）应评估其对于在运行环境中的使用是否必要。\n注 1：运行环境可能有所不同。最小化决策的一个指标是，用户仅采取对运行环境有影响的决策（例如，为了避免不兼容性），否则使用默认值。\n对于 IXIT 26-UserDec 中的每一项决策，测试实验室（TL）应评估根据“选项（Options）”得出的该决策默认值是否符合安全最佳实践。\n注 2:使用 ETSI TS 103 645 [1]/ETSI EN 303 645 [2] 中的规定作为安全最佳实践的指导是有帮助的。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n用户采取的每一项决策对于在运行环境中的使用都是必要的；且\n用户所采取决策的每一个默认值均符合安全最佳实践。\n否则将结论为“失败”。",
+      "functional_case_ids": [
+        "5.12-1-2"
+      ]
+    },
+    {
+      "clause_id": "5.13-1",
+      "source_clause_id": "5.13-1",
+      "test_case_id": "5.13-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "29-InpVal",
+        "27-UserIntf",
+        "28-ExtAPI",
+        "11-ComMech"
+      ],
+      "test_purpose": "本测试案例的目的是对 DUT 的数据输入验证方法进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 29-InpVal 中的数据输入验证方法组合是否涵盖了所有数据输入源，包括\nIXIT 27-UserIntf 中允许用户输入数据的用户界面；以及\nIXIT 28-ExtAPI 中允许从外部源输入数据的应用程序编程接口 (API)；以及\n根据 IXIT 11-ComMech 中相应的远程访问通信方法允许数据输入的网络通信。\n对于 IXIT 29-InpVal 中的每种数据输入验证方法，测试实验室 (TL) 应评估其对于验证相应数据输入是否有效。\n注：验证通常包括检查数据输入是否具有允许的格式和结构、允许的值、允许的基数和允许的顺序，旨在防止误用。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n数据输入验证方法涵盖了通过用户界面、通过 API 传输以及在服务和设备之间的网络中输入的数据；且\n每一个描述的数据输入验证方法对于验证相应的数据输入都是有效的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "5.13-1-2"
+      ]
+    },
+    {
+      "clause_id": "6-1",
+      "source_clause_id": "6-1",
+      "test_case_id": "6-1-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试案例的目的是对有关个人数据处理的用户信息进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 2-UserInfo 中的“个人数据文档”是否适合消费者获取有关个人数据处理的信息。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n有关个人数据处理的信息已适当地提供给消费者。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "6-1-2"
+      ]
+    },
+    {
+      "clause_id": "6-2",
+      "source_clause_id": "6-2",
+      "test_case_id": "6-2-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "21-PersData"
+      ],
+      "test_purpose": "本测试案例的目的是对消费者是否同意处理个人数据进行概念性评估。",
+      "test_units": "对于 IXIT 21-PersData 中每一项根据“获取同意”在消费者同意的基础上进行处理的个人数据，测试实验室（TL）应根据“获取同意”的描述，评估该主动选择（Opt-in）是否：\n是自由地给出的；且\n是明显地给出的；且\n是明确地给出的\n注：自由地 (Freely)： 用户必须有权说“不”，明显地 (Obviously)： 同意窗口必须明显弹出，明确地 (Explicitly)： 必须有主动动作，预先勾选好的复选框是不合格的",
+      "pass_criteria": "若在消费者同意的基础上处理的每一类个人数据都满足下列条件，则结论为“通过”：\n描述了如何表达对针对特定目的处理个人数据的同意（主动选择）；且\n该主动选择是自由、明显且明确地给出的。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "6-2-2"
+      ]
+    },
+    {
+      "clause_id": "6-3",
+      "source_clause_id": "6-3",
+      "test_case_id": "6-3-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "21-PersData"
+      ],
+      "test_purpose": "本测试案例的目的是对撤回消费者对处理个人数据的同意进行概念性评估。",
+      "test_units": "对于 IXIT 21-PersData 中每一项根据“获取同意”在消费者同意的基础上进行处理的个人数据，测试实验室 (TL) 应评估“撤回同意”中的信息是否描述了如何通过对 IoT 设备和服务功能进行适当配置，来随时撤回对处理个人数据的同意。",
+      "pass_criteria": "若在消费者同意的基础上处理的每一类个人数据都满足下列条件，则结论为“通过”：\n描述了如何随时撤回对处理个人数据的同意。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "6-3-2"
+      ]
+    },
+    {
+      "clause_id": "6-4",
+      "source_clause_id": "6-4",
+      "test_case_id": "6-4-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "24-TelData",
+        "21-PersData"
+      ],
+      "test_purpose": "本测试案例的目的是对遥测数据的处理进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 24-TelData 的“个人数据”列中引用的 IXIT 21-PersData 里的个人数据，对于收集数据“目的”中所描述的预期功能是否是必要的。\n注：遥测数据被认为对于预期功能是必要的，当且仅当它们是实现处理目的所必需的。",
+      "pass_criteria": "如果每个遥测数据都满足下列条件，则结论为“通过”：\n对于每一项遥测数据，其处理对于预期功能是必要的。\n否则结论为“失败”。",
+      "functional_case_ids": []
+    },
+    {
+      "clause_id": "6-5",
+      "source_clause_id": "6-5",
+      "test_case_id": "6-5-1",
+      "origin_module": "M5",
+      "origin_phase": "m0_concept",
+      "ixit_tables": [
+        "2-UserInfo"
+      ],
+      "test_purpose": "本测试案例的目的是对处理遥测数据的用户信息进行概念性评估。",
+      "test_units": "测试实验室 (TL) 应评估 IXIT 2-UserInfo 中的“遥测数据文档”是否适合消费者获取有关遥测数据处理的信息。",
+      "pass_criteria": "如果出现以下情况，则结论为“通过”：\n向用户提供了适当的遥测数据处理信息。\n否则结论为“失败”。",
+      "functional_case_ids": [
+        "6-5-2"
+      ]
+    }
+  ]
+}

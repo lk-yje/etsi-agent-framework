@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ETSI Mx Agent Harness Configuration",
+  "description": "Per-module GuardConfig that defines the behavior contract between the main thread and each Mx sub-agent. This is a machine-readable manifestation of the Harness specification — it constrains what the agent may do, what it must produce, and what quality gates it must pass before delivery. Values here are injected into agent dispatch prompts and validated by validate_evidence.py.",
+
+  "version": "1.0",
+
+  "defaults": {
+    "description": "Shared defaults inherited by all Mx modules. Each module may override.",
+    "guard": {
+      "maxLlmRounds": 30,
+      "maxToolCalls": 50,
+      "maxRetryOnAuditReject": 2,
+      "timeoutMinutes": 25
+    },
+    "selfMonitoring": {
+      "checkRoundCount": true,
+      "roundCheckInterval": 5,
+      "roundCheckInstruction": "每完成 5 轮工具调用，检查: (1) 已覆盖多少条款? (2) 还剩多少条款? (3) 当前进度能否在剩余轮次内完成? 若不能 → 优先完成核心条款，其余标 INCONCLUSIVE 并注明「轮次预算不足」。",
+      "preDeliveryChecklist": [
+        "selfCheck.hasErrors === false",
+        "所有 ICS=Y 条款的 conceptVerdict ≠ null",
+        "所有 ICS=Y 条款的 functionVerdict ≠ null",
+        "所有 FAIL 条款的 expectedBehavior + actualBehavior 已填写",
+        "所有 PENDING_MANUAL 条款的 manualSteps 已填写",
+        "executionTrace.steps 至少覆盖每个已裁决条款一次"
+      ]
+    }
+  },
+
+  "modules": {
+    "M0": {
+      "name": "ICS 逻辑验证",
+      "producedBy": "main-thread",
+      "guard": {
+        "maxLlmRounds": 10,
+        "maxToolCalls": 15,
+        "maxRetryOnAuditReject": 1,
+        "timeoutMinutes": 10
+      },
+      "qualityGates": {
+        "description": "M0 的质量门禁 — 不通过不得进入 M1-M5 派发",
+        "allMClausesChecked": "所有 M (强制性) 条款 ICS 声明均为 Y",
+        "allNAHaveJustification": "所有 N/A 声明有合理的 justification",
+        "crossSheetContradictionsResolved": "IXIT 不同 sheet 之间的自相矛盾已标注并记录疑点清单",
+        "outputFile": "evidence_M0_ics_validation.json + .md"
+      },
+      "inputContract": {
+        "required": ["ixit.json"],
+        "optional": []
+      },
+      "outputContract": {
+        "produces": ["evidence_M0_ics_validation.json", "evidence_M0_ics_validation.md"],
+        "keyFields": ["icsContradictions[]", "naJustificationReview[]", "mClauseStatusSummary"]
+      }
+    },
+
+    "M1": {
+      "name": "攻击面与端口",
+      "guard": {
+        "maxLlmRounds": 25,
+        "maxToolCalls": 40,
+        "maxRetryOnAuditReject": 2,
+        "timeoutMinutes": 20
+      },
+      "qualityGates": {
+        "description": "M1 质量门禁",
+        "nmapOutputSaved": "nmap TCP + UDP 全端口输出已写入工作区文件",
+        "nmapVsIxit15Compared": "每个 nmap 发现的端口已与 IXIT 15-Intf 一一比对",
+        "netstatOrIxit13Compared": "默认启用的软件服务已与 IXIT 13-SoftServ 一一比对",
+        "authDiffAllEndpoints": "所有非登录 API 端点已执行 auth_diff (admin vs none)",
+        "passiveIntelReviewed": "passive_intel 扫描结果已逐条审查，密钥/令牌/版本已标记",
+        "minEvidenceCount": 12,
+        "allEvidenceIndexable": "所有 evidence 条目含 frame 编号或 Burp 请求序号或文件路径"
+      },
+      "inputContract": {
+        "required": ["ixit.json", "nmap_tcp.txt", "nmap_udp.txt"],
+        "optional": ["capture.pcap"]
+      },
+      "outputContract": {
+        "produces": ["evidence_M1_attack_surface.json", "evidence_M1_attack_surface.md"],
+        "keyFields": ["5.6-1 port comparison", "5.6-5 service comparison", "5.5-5 auth_diff results"]
+      }
+    },
+
+    "M2": {
+      "name": "认证与口令",
+      "guard": {
+        "maxLlmRounds": 20,
+        "maxToolCalls": 35,
+        "maxRetryOnAuditReject": 2,
+        "timeoutMinutes": 18
+      },
+      "qualityGates": {
+        "description": "M2 质量门禁",
+        "frontendEncryptionChecked": "5.1-3 前端加密已按 frontend-encryption-check.md 流程分析 (playwright 可用时全自动，不可用时 → report_to_main 禁止降级)",
+        "loginTrafficIdentified": "proxy_history 中已识别认证登录流量 (frame 编号或 Burp 序号)",
+        "passwordPolicyAnalyzed": "5.1-2 口令策略已对照 IXIT 1-AuthMech 逐项分析",
+        "bruteForceProbeDone": "5.1-5 爆破锁定仅做 1-2 次失败探针确认机制存在，未触发真实锁定",
+        "minEvidenceCount": 5,
+        "noHardLockout": "未触发认证锁定 — 如触发则整个 M2 上下文不可恢复"
+      },
+      "inputContract": {
+        "required": ["ixit.json", "capture.pcap", "authenticated_session"],
+        "optional": ["playwright MCP (前端 JS 分析)"]
+      },
+      "outputContract": {
+        "produces": ["evidence_M2_auth_password.json", "evidence_M2_auth_password.md"],
+        "keyFields": ["5.1-3 frontend encryption analysis", "5.1-2 password uniqueness check"]
+      },
+      "dependency": {
+        "consumedBy": ["M3"],
+        "field": "5.1-3 frontend encryption verdict",
+        "usedFor": "M3 5.5-1 通信加密 — 前端加密结果作为通信加密分析的输入"
+      }
+    },
+
+    "M3": {
+      "name": "通信加密",
+      "guard": {
+        "maxLlmRounds": 30,
+        "maxToolCalls": 50,
+        "maxRetryOnAuditReject": 2,
+        "timeoutMinutes": 25
+      },
+      "qualityGates": {
+        "description": "M3 质量门禁 — 对 tshark 深度分析要求最高",
+        "tsharkProtocolStatsDone": "tshark -q -z io,phs 协议分层统计已完成",
+        "tlsHandshakeAnalyzed": "实际协商的 cipher suite + TLS 版本已提取 (非仅依赖 nmap ssl-enum-ciphers)",
+        "outboundConnectionsChecked": "DUT 出站连接已核验 (tshark -Y 'ip.src==<DUT_IP>')",
+        "frameLevelReferences": "每条 PASS/FAIL 至少引用 1 个 pcap frame 编号",
+        "allProtocolsCovered": "HTTP + RTSP + SDK + WebSocket + 其他已识别协议均已分析加密状态",
+        "minEvidenceCount": 7,
+        "crossModuleDependencyResolved": "M2 5.1-3 前端加密结果已读取并引用 (按跨 Agent 数据传递范式)"
+      },
+      "inputContract": {
+        "required": ["ixit.json", "capture.pcap (必须 >1KB)", "nmap_tcp.txt"],
+        "optional": ["M2 evidence JSON (5.1-3 前端加密结论)"]
+      },
+      "outputContract": {
+        "produces": ["evidence_M3_comm_crypto.json", "evidence_M3_comm_crypto.md"],
+        "keyFields": ["5.5-1 encryption analysis per protocol", "5.5-6/7 CSP transport analysis"]
+      },
+      "dependency": {
+        "dependsOn": ["M2"],
+        "field": "M2.clauses[clauseId=5.1-3].functionVerdict",
+        "waitStrategy": "bash-poll-evidence-json (详见 module-split.md §跨 Agent 数据传递)"
+      }
+    },
+
+    "M4": {
+      "name": "更新与完整性",
+      "guard": {
+        "maxLlmRounds": 35,
+        "maxToolCalls": 55,
+        "maxRetryOnAuditReject": 2,
+        "timeoutMinutes": 25
+      },
+      "qualityGates": {
+        "description": "M4 质量门禁 — 条款最多 (22 条)，多数为手工条款",
+        "m4PreprocessedLoaded": "已加载 m4_preprocessed.json (非 8MB ixit.json)",
+        "firmwareUploadTrafficIdentified": "5.3-2/5.3-9 固件上传流量已在 Burp/WebSocket history 中识别",
+        "escapeClauseCheckedPerClause": "每个条件性条款的 escape_clause 是否适用已逐条判断 (5.3-6A, 5.3-6B, 5.3-11 等)",
+        "manualClausesHaveSteps": "所有手工条款 (5.4-1~4, 5.7-1/2 等) 已写具体手工测试步骤",
+        "minEvidenceCount": 22,
+        "updateMechanismConsistency": "IXIT 6-SoftComp 可更新声明 ≠ 空 → 7-UpdMech 必有内容，矛盾已标记"
+      },
+      "inputContract": {
+        "required": ["m4_preprocessed.json", "ixit.json (仅用于交叉验证)"],
+        "optional": ["capture.pcap (固件升级流量)", "firmware files (tampered/ + old/)"]
+      },
+      "outputContract": {
+        "produces": ["evidence_M4_update_integrity.json", "evidence_M4_update_integrity.md"],
+        "keyFields": ["5.3-2 downgrade", "5.3-9 integrity", "5.3-6A/B escape clause verdicts"]
+      }
+    },
+
+    "M5": {
+      "name": "输入验证与数据保护",
+      "guard": {
+        "maxLlmRounds": 30,
+        "maxToolCalls": 50,
+        "maxRetryOnAuditReject": 2,
+        "timeoutMinutes": 25
+      },
+      "qualityGates": {
+        "description": "M5 质量门禁 — 主动注入测试，弹药库加载是硬约束",
+        "exploitKnowledgeLoaded": "web-sqli.md + web-xss.md + web-rce.md + web-traversal.md 已 Read，payload 带 [ref:] 标记",
+        "sqlmapOutputSaved": "sqlmap 输出已写入工作区文件 (sqlmap_output.txt)",
+        "pathFuzzOutputSaved": "dir_brute_force.py/http_fuzz 路径爆破结果已写入工作区文件 (fuzz_dir_*.json)",
+        "xrayLogReviewed": "xray_run.log 已做广度复核 (端点数 + 探针类型覆盖)",
+        "fuzzProbesDone": "Burp http_fuzz 已对 IXIT 29-InpVal 声明的每类输入发探针",
+        "injectionPayloadsAttributed": "每条注入 payload 可追溯到弹药库文件 + 段落",
+        "minEvidenceCount": 17,
+        "noDestructiveActions": "未删除数据、未修改配置、未触发真实业务影响"
+      },
+      "inputContract": {
+        "required": ["ixit.json", "capture.pcap", "authenticated_session"],
+        "optional": ["xray_run.log", "xray JSON/HTML (如有漏洞发现)"]
+      },
+      "outputContract": {
+        "produces": ["evidence_M5_input_dataprotection.json", "evidence_M5_input_dataprotection.md"],
+        "keyFields": ["5.13-1 injection test results", "5.8-3 documentation accessibility", "5.9-3 reconnect analysis"]
+      }
+    }
+  },
+
+  "auditQueue": {
+    "description": "触发式审计队列配置 — Mx 完成即入队",
+    "maxRetries": 2,
+    "auditorSkill": "etsi-report-auditor",
+    "auditorPromptTemplate": "pipelines/etsi/personas/audit-agent.md",
+    "l1Script": "scripts/validate_evidence.py",
+    "states": {
+      "accepted": "ACCEPT — evidence 合格，进入汇总",
+      "rejected": "REJECT — 审计备忘录打回 Mx 重测，retry_count + 1",
+      "flagged": "FLAGGED — retry_count = 2 仍未通过，主线程最终裁定"
+    }
+  },
+
+  "crossModuleDependencies": {
+    "description": "跨模块数据依赖图谱 — 主线程派发时注入 {cross_agent_dependency} 和 {pre_discovered_facts}",
+    "edges": [
+      {
+        "consumer": "M3",
+        "producer": "M2",
+        "field": "clauses[clauseId=5.1-3]",
+        "purpose": "前端加密分析结果作为通信加密评估的输入",
+        "fallbackIfMissing": "退化为 tshark 密文格式分析 + 手工 DevTools 步骤"
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test-generated fixtures
+tests/fixtures/*_test.md
+tests/fixtures/wp.md
+tests/fixtures/ap.md
+tests/fixtures/cr.md
+tests/fixtures/ac.md
+tests/fixtures/ce.md
+tests/fixtures/es.md
+
+# Local config (API keys, etc.)
+.env
+.env.local
+
+# Local scratch / tooling output
+.verify/
+.playwright-mcp/
+.history/
+experiments/
+scratch/
+web/.runs.json

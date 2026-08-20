@@ -1,0 +1,327 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ETSI Mx Evidence — Pre-Evidence JSON (统一格式)",
+  "description": "每个 Mx agent 产出的唯一交付物。agent 不写 MD — MD 由主线程在 evidence 确认通过后自动生成。agent 写完此 JSON 即回传摘要。meta.status 初始值设为 pending_audit。",
+
+  "type": "object",
+  "required": ["meta", "executionTrace", "clauses", "selfCheck"],
+  "properties": {
+
+    "meta": {
+      "type": "object",
+      "description": "模块元信息 — 审计 agent 和 phase gate 的入口索引",
+      "required": ["moduleId", "moduleName", "dutIp", "ixitJsonPath", "generatedAt", "clauseCount", "retryCount", "status"],
+      "properties": {
+        "moduleId": {
+          "type": "string",
+          "enum": ["M0", "M1", "M2", "M3", "M4", "M5"]
+        },
+        "moduleName": {
+          "type": "string",
+          "description": "模块中文名称"
+        },
+        "dutIp": {
+          "type": "string",
+          "description": "被测设备 IP"
+        },
+        "ixitJsonPath": {
+          "type": "string",
+          "description": "工作区内 ixit.json 绝对路径"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "agent 完成交付的 ISO 8601 时间戳"
+        },
+        "clauseCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "模块分配的条款总数"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "当前重试次数。0=首次执行，1-2=打回重测。主线程追踪并写入。"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending_audit", "accepted", "rejected", "flagged"],
+          "description": "管线状态。agent 写 pending_audit → 审计 ACCEPT 后主线程脚本改写为 accepted → REJECT 时写 rejected → 两次未过写 flagged"
+        }
+      }
+    },
+
+    "executionTrace": {
+      "type": "object",
+      "description": "Agent 执行过程轨迹。审计 agent Step 1 (Harness 合规) 的核心输入。无轨迹 → 直接 REJECT (不计入 retry)。",
+      "required": ["startedAt", "totalRounds", "steps"],
+      "properties": {
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totalRounds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "FC-Loop 总轮次。0 → 直接 REJECT (agent 未记录任何步骤)。"
+        },
+        "selfReportedBudgetUsed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Agent 自报的 token 消耗估计。跨度检测: <5000 → 可能偷懒，>80000 → 可能 loop 失控。"
+        },
+        "steps": {
+          "type": "array",
+          "description": "关键决策步骤。每个 clauseId 至少出现在一条 step 中。",
+          "items": {
+            "type": "object",
+            "required": ["seq", "phase", "summary"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 1 },
+              "phase": {
+                "type": "string",
+                "enum": ["preflight", "tool_call", "reasoning", "pivot", "self_check", "delivery"]
+              },
+              "summary": { "type": "string", "description": "一句话发生了什么" },
+              "tool": { "type": "string", "description": "phase=tool_call 或 pivot 时必填" },
+              "finding": { "type": "string", "description": "关键发现。无新发现时可省略。" },
+              "clauseIds": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "该步骤贡献了哪些条款的裁决"
+              },
+              "durationSec": { "type": "integer", "minimum": 0 },
+              "error": {
+                "type": "object",
+                "description": "工具失败时的降级决策。phase=pivot 时必填。",
+                "properties": {
+                  "signature": { "type": "string" },
+                  "decision": { "type": "string", "enum": ["retry", "retry_different_params", "fallback_alternative_tool", "degrade_semiauto", "skip_with_inconclusive", "ignore_noncritical", "report_to_main"] },
+                  "fallback": { "type": "string" },
+                  "affectedClauses": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Agent 自己识别的执行风险"
+        }
+      }
+    },
+
+    "clauses": {
+      "type": "array",
+      "description": "逐条款裁决记录。每个 ICS=Y 条款必须有一条。",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "clauseId",
+          "provisionText",
+          "icsStatus",
+          "icsSupport",
+          "verdict",
+          "reason"
+        ],
+        "properties": {
+          "clauseId": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)+(-[A-Z])?$",
+            "description": "条款编号: 5.1-1, 5.3-6A, 6-1"
+          },
+
+          "provisionText": {
+            "type": "string",
+            "description": "EN 303 645 provision 概要 (1 句话)。审计者可据此快速理解语境，无需查标准原文。"
+          },
+
+          "icsStatus": {
+            "type": "string",
+            "description": "ICS Status 字段原文",
+            "examples": ["M", "M C(1)", "R C(2)", "R"]
+          },
+
+          "icsSupport": {
+            "type": "string",
+            "enum": ["Y", "N", "N/A"],
+            "description": "ICS 声明: Y=声称支持, N=声称不支持, N/A=不适用"
+          },
+
+          "icsDetail": {
+            "type": "string",
+            "description": "ICS Detail /Justification 原文摘要。三角对照的 IXIT 角。"
+          },
+
+          "verdict": {
+            "type": "string",
+            "enum": ["PASS", "FAIL", "NA", "INCONCLUSIVE", "PENDING_MANUAL"],
+            "description": "综合裁决。reason 字段承载完整推理链 (概念分析+功能验证)。"
+          },
+
+          "reason": {
+            "type": "string",
+            "description": "完整推理链。涵盖概念分析 (IXIT 是否逻辑自洽) + 功能验证 (实际测试是否与 IXIT 一致)。审计者从中提取概念/功能维度做三角对照。FAIL 时必须含预期 vs 实际对照。"
+          },
+
+          "expectedBehavior": {
+            "type": "string",
+            "description": "FAIL 强制: 标准要求的预期行为"
+          },
+
+          "actualBehavior": {
+            "type": "string",
+            "description": "FAIL 强制: 实测发现的实行为"
+          },
+
+          "evidence": {
+            "type": "array",
+            "description": "支撑证据列表。PASS/FAIL 至少 1 条，PENDING_MANUAL 可为空。",
+            "items": {
+              "type": "object",
+              "required": ["type", "level", "description"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["nmap", "tshark", "burp", "curl", "sqlmap", "xray", "playwright", "ixit", "netstat", "other"]
+                },
+                "path": {
+                  "type": ["string", "null"],
+                  "description": "工作区内文件路径。纯 IXIT 引用时为 null。"
+                },
+                "level": {
+                  "type": "string",
+                  "enum": ["L1", "L2", "L3", "L4", "L5"],
+                  "description": "证据分级。L4=无证据 (裁决不成立), L5=证据矛盾。L4/L5 → validate_evidence.py 直接 FAIL。"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "证据内容。pcap 类必须含 frame 编号，Burp 类必须含请求序号，curl 类必须含命令+参数。第三者可直接索引验证。"
+                },
+                "expectedVsActual": {
+                  "type": "string",
+                  "description": "FAIL 时强制: 该条证据的预期 vs 实际对照"
+                }
+              }
+            }
+          },
+
+          "ixitReferences": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "引用的 IXIT sheet 名称: ['1-AuthMech', '15-Intf']"
+          },
+
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "escape-clause",
+                "all-conditions",
+                "manual-only",
+                "inherited",
+                "constrained-device",
+                "conditional",
+                "pass-without-evidence",
+                "ics-na"
+              ]
+            },
+            "description": "条款特征标签。审计 agent 用于快速路由误判模式匹配。"
+          },
+
+          "warnings": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "执行中的已知局限或风险"
+          },
+
+          "manualSteps": {
+            "type": ["string", "null"],
+            "description": "手工测试步骤指引。verdict=PENDING_MANUAL 时强制。必须具体到操作者照做就能测。"
+          },
+
+          "retryHistory": {
+            "type": "array",
+            "description": "打回重测的历史记录。审计 agent 在 retryCount>0 时仅审查有 retryHistory 的条款。",
+            "items": {
+              "type": "object",
+              "required": ["retryCount", "memo", "changesMade"],
+              "properties": {
+                "retryCount": { "type": "integer", "minimum": 1 },
+                "memo": { "type": "string", "description": "审计 REJECT 的 retryInstruction.memo 原文" },
+                "changesMade": { "type": "string", "description": "本次重测具体改了什么" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "selfCheck": {
+      "type": "object",
+      "description": "自检清单 — L1 机械化验证的输入。agent 交付前逐项确认。",
+      "required": ["totalExpected", "actualInJson", "failClauses", "pendingManualClauses", "hasErrors"],
+      "properties": {
+        "totalExpected": {
+          "type": "integer",
+          "description": "主线程分配的条款总数"
+        },
+        "actualInJson": {
+          "type": "integer",
+          "description": "clauses 数组实际条目数"
+        },
+        "missingClauses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "totalExpected - actualInJson 后仍缺失的条款 ID。空=无遗漏。"
+        },
+        "uncertainClauses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "verdict=INCONCLUSIVE 的条款 ID。非空时需用户介入。"
+        },
+        "failCount": {
+          "type": "integer",
+          "description": "verdict=FAIL 的条款数"
+        },
+        "failClauses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["clauseId", "hasExpectedVsActual"],
+            "properties": {
+              "clauseId": { "type": "string" },
+              "hasExpectedVsActual": { "type": "boolean", "description": "任一条 false → L1 直接 REJECT" }
+            }
+          }
+        },
+        "pendingManual": {
+          "type": "integer",
+          "description": "verdict=PENDING_MANUAL 的条款数"
+        },
+        "pendingManualClauses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "每个条目必须有 manualSteps 字段"
+        },
+        "icsNAClauses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "icsSupport=N/A 的条款 ID。每个必须有 reason 说明理由。"
+        },
+        "hasErrors": {
+          "type": "boolean",
+          "description": "true → 不得交付，不得回传摘要。agent 必须在交付前修复。"
+        }
+      }
+    }
+  }
+}
