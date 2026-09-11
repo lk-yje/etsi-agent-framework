@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "moduleId": "M1",
+    "moduleName": "attack_surface",
+    "status": "pending_audit",
+    "retryCount": 0,
+    "timestamp": "2026-08-06T15:30:00Z"
+  },
+  "self_check": {
+    "total_expected": 3,
+    "actual_in_json": 3,
+    "missing_clauses": [],
+    "has_errors": false,
+    "error_details": []
+  },
+  "execution_trace": [
+    {
+      "phase": "preflight",
+      "round_number": 1,
+      "clause_ids": ["5.6-1", "5.6-2", "5.6-5"],
+      "action": "Loaded clause-reference.md and nmap_tcp.txt",
+      "tool": "read",
+      "outcome": "dependencies ready"
+    },
+    {
+      "phase": "work",
+      "round_number": 1,
+      "clause_ids": ["5.6-1"],
+      "action": "nmap scan result analysis: 80,443,554,8000,8443 open vs IXIT 15-Intf",
+      "tool": "bash",
+      "outcome": "5 ports found, IXIT 15-Intf lists 5 interfaces"
+    },
+    {
+      "phase": "work",
+      "round_number": 1,
+      "clause_ids": ["5.6-2"],
+      "action": "Banner grab: curl -I http://DUT:80",
+      "tool": "bash",
+      "outcome": "Server header: nginx (no version). No sensitive info in headers."
+    },
+    {
+      "phase": "delivery",
+      "round_number": 1,
+      "clause_ids": ["5.6-1", "5.6-2", "5.6-5", "5.5-2", "5.5-4", "5.5-5", "5.6-3", "5.6-4", "5.6-6", "5.6-7", "5.6-8", "5.6-9"],
+      "action": "All clauses processed, writing evidence JSON",
+      "tool": "write",
+      "outcome": "pre-M1-evidence-x0.json written"
+    }
+  ],
+  "clauses": [
+    {
+      "clause_id": "5.6-1",
+      "provision_text": "All network and logical interfaces shall be documented in IXIT 15-Intf",
+      "ics_status": "M",
+      "ics_support": "Y",
+      "ics_detail": "Interfaces documented in IXIT 15-Intf: HTTP(80), HTTPS(443), RTSP(554), SDK(8000), HTTPS-Admin(8443)",
+      "verdict": "PASS",
+      "reason": "IXIT 15-Intf lists 5 interfaces. Concept test: IXIT description is logically self-consistent and covers all required interface types. Function test: All 5 interfaces match between IXIT registration and nmap scan results.",
+      "evidence": [
+        {
+          "type": "nmap",
+          "path": "nmap_tcp.txt",
+          "level": "L1",
+          "description": "nmap -sS -sV -p- DUT: 5 open ports (80,443,554,8000,8443) match IXIT 15-Intf registration"
+        },
+        {
+          "type": "ixit",
+          "level": "L3",
+          "description": "IXIT 15-Intf meta + rows: 5 interfaces registered, all match nmap findings"
+        }
+      ],
+      "ixit_references": ["15-Intf"],
+      "tags": [],
+      "warnings": []
+    },
+    {
+      "clause_id": "5.6-2",
+      "provision_text": "The device shall not expose security-sensitive information through network services",
+      "ics_status": "M",
+      "ics_support": "Y",
+      "verdict": "PASS",
+      "reason": "Banner grab shows generic 'nginx' without version number. No firmware version, serial number, or internal IPs exposed in HTTP headers or default pages.",
+      "evidence": [
+        {
+          "type": "curl",
+          "path": "banner_http.txt",
+          "level": "L1",
+          "description": "curl -I http://DUT:80 → Server: nginx (no version), no X-Powered-By, no sensitive headers"
+        }
+      ],
+      "ixit_references": ["16-CodeMin"],
+      "tags": [],
+      "warnings": []
+    },
+    {
+      "clause_id": "5.6-5",
+      "provision_text": "The device shall only enable necessary software services by default",
+      "ics_status": "M",
+      "ics_support": "Y",
+      "verdict": "PASS",
+      "reason": "IXIT 13-SoftServ lists 11 services. All 5 open ports correspond to documented services (HTTP, HTTPS, RTSP, SDK, Admin). No unexpected services found.",
+      "evidence": [
+        {
+          "type": "nmap",
+          "path": "nmap_tcp.txt",
+          "level": "L1",
+          "description": "nmap service detection: 5 services match IXIT 13-SoftServ registration"
+        }
+      ],
+      "ixit_references": ["13-SoftServ"],
+      "tags": ["all-conditions"],
+      "warnings": []
+    }
+  ]
+}

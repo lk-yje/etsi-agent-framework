@@ -1,0 +1,17 @@
+{
+  "module_id": "M1",
+  "round_number": 1,
+  "retry_count": 0,
+  "audited_at": "2026-08-06T15:35:00Z",
+  "verdict": "ACCEPT",
+  "summary": "All 3 clauses triangulation-consistent. Verdicts accurate. Evidence levels sufficient.",
+  "findings": [],
+  "harness_report": {
+    "execution_trace_complete": true,
+    "total_rounds_ok": true,
+    "preflight_steps_present": true,
+    "all_clauses_traced": true,
+    "rounds_within_budget": true,
+    "issues": []
+  }
+}

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test-generated fixtures
+tests/fixtures/*_test.md
+tests/fixtures/wp.md
+tests/fixtures/ap.md
+tests/fixtures/cr.md
+tests/fixtures/ac.md
+tests/fixtures/ce.md
+tests/fixtures/es.md
+
+# Local config (API keys, etc.)
+.env
+.env.local
+
+# Local scratch / tooling output
+.verify/
+.playwright-mcp/
+.runtime/
+/tools/playwright-mcp/node_modules/
+.history/
+
+# 本机私有路径映射与运行登记（含机器路径，不入库）
+/path-mapping.json
+/path-mapping.private.json
+web/.runs.json
+
+# scratch 杂物（日志/进程清单/临时脚本）
+scratch/
+
+# 实验运行记录与派生产物不进入公开发布包
+experiments/

@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "dut_identification": {
+      "DUT Identification": {
+        "DUT Name": "Mock Network Camera X100",
+        "Model": "Mock-DUT-Camera-X100",
+        "Brand/Trade Name(s)": "MockVision",
+        "Firmware version": "v5.7.13.20260801",
+        "Hardware configuration": "ARM Cortex-A53, 512MB RAM",
+        "Constrained Device": "No",
+        "Justification": ""
+      }
+    },
+    "security_context": "",
+    "conditions": [],
+    "source": "mini_ixit.json",
+    "parser": "parse_ixit_xlsx.py"
+  },
+  "ics": [
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.1-1: Where a device uses passwords for authentication...",
+      "status": "M C(1)",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Device uses web-based login with username/password. Default password is unique per device based on serial number.",
+      "required_ixit_entries": ["1-AuthMech"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.1-2: Where a pre-installed unique password is used...",
+      "status": "M C(1)",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Each device ships with a unique password derived from device serial number. Password label on device bottom.",
+      "required_ixit_entries": ["1-AuthMech"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.1-3: Authentication mechanisms shall use best practice cryptography...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Password transmitted as SHA-256 hash with salt. HTTPS available but not enforced by default.",
+      "required_ixit_entries": ["1-AuthMech", "11-ComMech"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.1-4: The device shall provide a mechanism to change authentication values...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Password changeable via web UI and ISAPI. No restrictions on password change frequency.",
+      "required_ixit_entries": ["1-AuthMech"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.1-5: The device shall protect against brute-force attacks...",
+      "status": "M C(2)",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Account locked for 30 minutes after 7 failed attempts. Not a constrained device.",
+      "required_ixit_entries": ["1-AuthMech"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.5-1: All communication shall use best-practice cryptography...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "TLS 1.2 supported. HTTP also available for legacy integration. RTSP without encryption.",
+      "required_ixit_entries": ["11-ComMech", "12-NetSecImpl"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.5-2: The device shall have its network security implementation reviewed...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Network stack reviewed by internal security team. Report: internal-review-2026Q2.pdf",
+      "required_ixit_entries": ["12-NetSecImpl"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.6-1: All network and logical interfaces shall be documented...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Interfaces documented in IXIT 15-Intf. HTTP(80), HTTPS(443), RTSP(554), SDK(8000), HTTPS-Admin(8443).",
+      "required_ixit_entries": ["15-Intf", "13-SoftServ"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.6-2: The device shall not expose security-sensitive information...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Banner returns generic 'nginx' string. No firmware version in HTTP headers.",
+      "required_ixit_entries": ["16-CodeMin"],
+      "group": "Implementation Conformance Statement (ICS)"
+    },
+    {
+      "applicability": "Applicable",
+      "reference": "Provision 5.13-1: The device shall validate input data...",
+      "status": "M",
+      "en18031": "",
+      "support": "Y",
+      "detail_justification": "Input validation at API gateway level. SQLi/XSS protection implemented.",
+      "required_ixit_entries": ["29-InpVal"],
+      "group": "Implementation Conformance Statement (ICS)"
+    }
+  ],
+  "ixit_tables": {
+    "1-AuthMech": {
+      "meta": {"title": "Authentication Mechanisms", "description": "Details of all authentication mechanisms"},
+      "rows": [
+        {"Mechanism": "Web Login", "Type": "Password-based", "Cryptography": "SHA-256 + salt", "Default Credential": "Unique per device (S/N based)"},
+        {"Mechanism": "ISAPI Auth", "Type": "Digest Authentication", "Cryptography": "MD5 (legacy)", "Default Credential": "Same as web login"}
+      ]
+    },
+    "11-ComMech": {
+      "meta": {"title": "Communication Mechanisms", "description": "Details of all communication protocols"},
+      "rows": [
+        {"Protocol": "HTTPS", "Version": "TLS 1.2", "Cipher Suites": "ECDHE-RSA-AES256-GCM-SHA384", "Default": "No (HTTP default)"},
+        {"Protocol": "HTTP", "Version": "1.1", "Cipher Suites": "N/A (plaintext)", "Default": "Yes"},
+        {"Protocol": "RTSP", "Version": "1.0", "Cipher Suites": "None", "Default": "Yes"}
+      ]
+    },
+    "12-NetSecImpl": {
+      "meta": {"title": "Network Security Implementation", "description": "Review status of network security"},
+      "rows": [
+        {"Component": "OpenSSL", "Version": "1.1.1w", "Review Method": "Static Analysis", "Report": "internal-review-2026Q2.pdf"},
+        {"Component": "nginx", "Version": "1.24.0", "Review Method": "Configuration Audit", "Report": "internal-review-2026Q2.pdf"}
+      ]
+    },
+    "15-Intf": {
+      "meta": {"title": "Interfaces", "description": "All physical and logical interfaces"},
+      "rows": [
+        {"Name": "Intf-HTTP", "Port": 80, "Type": "Logical", "Default": "Enabled", "Purpose": "Web UI (redirect to HTTPS)"},
+        {"Name": "Intf-HTTPS", "Port": 443, "Type": "Logical", "Default": "Enabled", "Purpose": "Web UI Secure"},
+        {"Name": "Intf-RTSP", "Port": 554, "Type": "Logical", "Default": "Enabled", "Purpose": "Video Streaming"},
+        {"Name": "Intf-SDK", "Port": 8000, "Type": "Logical", "Default": "Enabled", "Purpose": "SDK/ISAPI Access"},
+        {"Name": "Intf-Admin", "Port": 8443, "Type": "Logical", "Default": "Enabled", "Purpose": "Admin Console"}
+      ]
+    },
+    "29-InpVal": {
+      "meta": {"title": "Input Validation", "description": "Input validation mechanisms"},
+      "rows": [
+        {"Location": "API Gateway", "Method": "Parameterized Queries + Input Sanitization", "Coverage": "All HTTP endpoints"}
+      ]
+    }
+  }
+}

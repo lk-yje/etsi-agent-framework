@@ -1,0 +1,93 @@
+{
+  "_description": "部署映射模板。实际运行必须通过 PATH_MAPPING 指向仓库外的私有 JSON；此文件不会被运行时自动加载。",
+  "_syntax": "${NAMESPACE.NAME}  — NAMESPACE ∈ {TOOL, DIR, CFG}，分别代表可执行文件、目录、配置文件",
+  "_usage": "以此结构创建本机私有 mapping；skill 文件使用占位符，PowerShell 取 windows 值，Git Bash 取 bash 值。",
+
+  "paths": {
+
+    "DIR.SKILLS": {
+      "windows": "D:\\ETSI\\skills",
+      "bash": null,
+      "desc": "Skills 仓库根目录"
+    },
+    "DIR.WORKSPACE": {
+      "windows": "D:\\ETSI\\runs",
+      "bash": "/d/ETSI/runs",
+      "desc": "测试工作区根，子目录 YYYYMMDD_HHmmss"
+    },
+    "DIR.FIRMWARE": {
+      "windows": "D:\\ETSI\\firmware",
+      "bash": "/d/ETSI/firmware",
+      "desc": "固件存放目录"
+    },
+    "DIR.PLAYWRIGHT": {
+      "windows": "D:\\ETSI\\playwright",
+      "bash": "/d/ETSI/playwright",
+      "desc": "Playwright MCP 工作目录"
+    },
+
+    "DIR.TSHARK": {
+      "windows": "C:\\Program Files\\Wireshark",
+      "bash": "/c/Program Files/Wireshark",
+      "desc": "Wireshark 安装目录 (含 tshark.exe)"
+    },
+    "DIR.NMAP": {
+      "windows": "C:\\Program Files (x86)\\Nmap",
+      "bash": "/c/Program Files (x86)/Nmap",
+      "desc": "Nmap 安装目录"
+    },
+    "DIR.XRAY": {
+      "windows": "D:\\ETSI\\tools\\xray",
+      "bash": "/d/ETSI/tools/xray",
+      "desc": "Xray 安装目录 (含 xray_windows_amd64.exe)"
+    },
+    "DIR.SQLMAP": {
+      "windows": "D:\\ETSI\\tools\\sqlmap",
+      "bash": "/d/ETSI/tools/sqlmap",
+      "desc": "sqlmap 安装目录"
+    },
+
+    "TOOL.TSHARK": {
+      "windows": "C:\\Program Files\\Wireshark\\tshark.exe",
+      "bash": "/c/Program Files/Wireshark/tshark.exe",
+      "desc": "tshark 命令行可执行文件 — 抓包 / pcap 解析 / 协议分析"
+    },
+    "TOOL.WIRESHARK": {
+      "windows": "C:\\Program Files\\Wireshark\\Wireshark.exe",
+      "bash": null,
+      "desc": "Wireshark GUI — 仅环境检查用，实际测试用 tshark"
+    },
+    "TOOL.NMAP": {
+      "windows": "C:\\Program Files (x86)\\Nmap\\nmap.exe",
+      "bash": "/c/Program Files (x86)/Nmap/nmap.exe",
+      "desc": "nmap 可执行文件 — 端口扫描 / 服务版本检测"
+    },
+    "TOOL.XRAY": {
+      "windows": "D:\\ETSI\\tools\\xray\\xray_windows_amd64.exe",
+      "bash": "/d/ETSI/tools/xray/xray_windows_amd64.exe",
+      "desc": "xray 可执行文件 — webscan 被动扫描，监听 127.0.0.1:7778"
+    },
+    "TOOL.SQLMAP": {
+      "windows": "D:\\ETSI\\tools\\sqlmap\\sqlmap.py",
+      "bash": "/d/ETSI/tools/sqlmap/sqlmap.py",
+      "desc": "sqlmap 入口脚本 — 需 python 解释执行"
+    },
+    "TOOL.PYTHON3": {
+      "windows": "C:\\Python311\\python.exe",
+      "bash": "/c/Python311/python.exe",
+      "desc": "Python 3.12 解释器 — 用于执行 sqlmap / dir_brute_force.py 等 Python 脚本"
+    },
+
+    "CFG.XRAY": {
+      "windows": "D:\\ETSI\\tools\\xray\\config.yaml",
+      "bash": "/d/ETSI/tools/xray/config.yaml",
+      "desc": "xray 配置文件 — restriction.hostname_allowed 需按 DUT IP 覆写"
+    }
+  },
+
+  "NOT_MAPPED": [
+    "exploit/references/web-traversal.md 中的 C:\\windows\\win.ini 等 —— 攻击目标示例，非本地配置",
+    "exploit/references/web-upload.md 中的 C:\\php\\php-cgi.exe —— 漏洞利用示例，非本地工具",
+    "~/.claude.json / ~/.claude/playwright-mcp-version.json —— Claude Code 标准路径，全平台一致"
+  ]
+}

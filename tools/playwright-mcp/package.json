@@ -1,0 +1,9 @@
+{
+  "name": "etsi-playwright-mcp-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned runtime for the ETSI Playwright MCP transport.",
+  "dependencies": {
+    "@playwright/mcp": "0.0.79"
+  }
+}
