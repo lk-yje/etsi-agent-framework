@@ -12,7 +12,11 @@ from pathlib import Path
 PRIVATE_IP = re.compile(
     rb"(?<![0-9])(?:10\.(?:\d{1,3}\.){2}\d{1,3}|192\.168\.(?:\d{1,3}\.)\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.(?:\d{1,3}\.)\d{1,3})(?![0-9])"
 )
-PERSONAL_PATH = re.compile(rb"(?:[A-Za-z]:\\Users\\|/Users/|/home/)", re.IGNORECASE)
+_BACKSLASH = re.escape(bytes([92]))
+PERSONAL_PATH = re.compile(
+    b"(?:[A-Za-z]:" + _BACKSLASH + b"Users" + _BACKSLASH + b"|/(?:Users|home)/)",
+    re.IGNORECASE,
+)
 TOKEN = re.compile(rb"(?:gh[pous]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})")
 FORBIDDEN_SUFFIXES = {".pcap", ".pcapng", ".sqlite", ".db", ".key", ".pem", ".p12", ".pfx"}
 ALLOWED_ENV = {".env.template"}
