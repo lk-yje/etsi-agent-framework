@@ -9,6 +9,7 @@ import pytest
 from framework.context_pool import ContextPool
 from framework.phase_engine import PhaseExecutionEngine
 from pipelines.etsi.agents import (
+    build_clause_recipe_text,
     get_conceptual_shared_knowledge,
     get_work_shared_knowledge,
 )
@@ -90,3 +91,24 @@ def test_m3_phases_authorize_playwright_for_login_page_verification():
     m3_phases = definitions["modules"]["M3"]["phases"]
 
     assert all("playwright_mcp" in phase["tools"] for phase in m3_phases)
+
+
+@pytest.mark.parametrize("clause_id", ("5.1-3", "5.5-1", "5.5-6", "5.8-1"))
+def test_traffic_intelligence_recipe_is_injected_for_relevant_clauses(clause_id):
+    recipe = build_clause_recipe_text((clause_id,))
+
+    assert clause_id in recipe
+    assert "traffic_get_inventory" in recipe
+    assert "traffic_compare_declarations" in recipe
+
+
+def test_m2_auth_phase_authorizes_traffic_intelligence_for_5_1_3():
+    definitions = json.loads(
+        (Path(__file__).parents[1] / "framework" / "phase_definitions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    phase = definitions["modules"]["M2"]["phases"][0]
+
+    assert "5.1-3" in phase["clauses"]
+    assert "traffic_intelligence" in phase["tools"]

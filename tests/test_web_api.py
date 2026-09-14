@@ -1,4 +1,6 @@
 import json
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -6,6 +8,13 @@ from fastapi.testclient import TestClient
 from framework.reporting import write_report_bundle
 from framework.runtime_config import RuntimeSettings
 from framework.traffic_state import TrafficStateStore
+from contracts.traffic_intelligence import (
+    FlowDirection,
+    ObservedFlow,
+    ObservedFrame,
+    TrafficCaptureManifest,
+)
+from framework.traffic_intelligence.bundle_store import TrafficIntelligenceBundleWriter
 from web import server
 
 
@@ -23,15 +32,15 @@ def _configure_runtime(tmp_path: Path, monkeypatch) -> Path:
     return root
 
 
-def test_frontend_serves_persisted_traffic_checklist_controls():
-    """Traffic 操作项必须有可访问的完成控件和留痕字段，而不只是视觉列表。"""
+def test_frontend_uses_one_continuous_unlabelled_traffic_window():
+    """Traffic 只要求开始和完成，不展示逐项标签控件。"""
     response = TestClient(server.app).get("/")
 
     assert response.status_code == 200
-    assert 'data-item-toggle="' in response.text
-    assert 'data-note-item="' in response.text
-    assert 'data-evidence-item="' in response.text
-    assert 'data-save-item="' in response.text
+    assert "连续完成全部设备操作" in response.text
+    assert "中途不分步骤、不打标签" in response.text
+    assert 'data-item-toggle="' not in response.text
+    assert 'data-save-item="' not in response.text
     assert 'class="clause-toggle"' in response.text
     assert 'aria-expanded="false"' in response.text
     assert 'id="btnPickWorkspace"' in response.text
@@ -43,6 +52,8 @@ def test_frontend_serves_persisted_traffic_checklist_controls():
     assert 'id="inpToken"' not in response.text
     assert "inpIxitFile').files" not in response.text
     assert 'id="toolCoverage"' in response.text
+    assert 'id="trafficIntelSummary"' in response.text
+    assert "traffic-intelligence/flows" in response.text
     assert "按条款“应调用工具”分类" in response.text
     assert 'class="coverage-tool"' in response.text
 
@@ -77,6 +88,7 @@ def test_burp_recipe_subtools_do_not_fall_into_other_tools(tmp_path):
     coverage = server._read_tool_coverage(tmp_path)
 
     assert any(row["clause"] == "5.5-5" for row in coverage["Burp MCP"])
+    assert any(row["clause"] == "5.5-5" for row in coverage["Traffic Intelligence"])
     assert not any(row["clause"] == "5.5-5" for row in coverage.get("其他工具", []))
 
 
@@ -414,4 +426,91 @@ def test_evidence_download_exports_selected_clause_package(tmp_path, monkeypatch
     assert response.headers["content-type"].startswith("application/zip")
     assert "evidence_clauses_5.6-1.zip" not in response.headers.get("content-disposition", "")
     assert "evidence_clause_5.6-1.zip" in response.headers.get("content-disposition", "")
+    server._runs.pop(run_id, None)
+
+
+def test_web_browses_verified_traffic_intelligence_without_payload(tmp_path, monkeypatch):
+    root = _configure_runtime(tmp_path, monkeypatch)
+    workspace = root / "case-traffic-intelligence"
+    workspace.mkdir()
+    capture = b"fixture"
+    (workspace / "capture.pcap").write_bytes(capture)
+    manifest = TrafficCaptureManifest(
+        capture_sha256=hashlib.sha256(capture).hexdigest(),
+        capture_size=len(capture),
+        capture_format="pcap",
+        analysis_backend="direct_tshark",
+        analysis_started_at=datetime.now(timezone.utc),
+    )
+    flow = ObservedFlow(
+        flow_id="flow-web-test",
+        transport="TCP",
+        ip_version=4,
+        src_ip="192.0.2.10",
+        src_port=51000,
+        dst_ip="198.51.100.8",
+        dst_port=443,
+        direction_relative_to_dut=FlowDirection.OUTBOUND,
+        first_frame=1,
+        last_frame=1,
+        frame_count=1,
+        frame_refs=[1],
+    )
+    frame = ObservedFrame(
+        frame_number=1,
+        flow_id=flow.flow_id,
+        timestamp_epoch=1000,
+        frame_length=100,
+        src_address=flow.src_ip,
+        dst_address=flow.dst_ip,
+        src_port=flow.src_port,
+        dst_port=flow.dst_port,
+        transport="TCP",
+    )
+    alignment = {
+        "alignment_id": "alignment-web-test",
+        "declaration_id": None,
+        "flow_ids": [flow.flow_id],
+        "overall": "UNDECLARED_OBSERVED",
+        "dimensions": {"declaration": "UNDECLARED_OBSERVED"},
+        "reason": "not declared",
+        "frame_refs": [1],
+        "confidence": 0.9,
+    }
+    with TrafficIntelligenceBundleWriter(workspace, manifest) as writer:
+        writer.write_json("inventory.json", {
+            "flow_count": 1,
+            "endpoint_count": 2,
+            "unknown_cluster_count": 0,
+            "declaration_count": 0,
+            "alignment_counts": {"UNDECLARED_OBSERVED": 1},
+        })
+        writer.write_json("summary-for-ai.json", {"encryption_counts": {}})
+        writer.write_json("declaration-alignments.json", [alignment])
+        writer.write_json("unknown-protocol-clusters.json", [])
+        writer.write_json("automatic-activity-windows.json", [])
+        writer.write_json("dns-correlations.json", [])
+        writer.write_jsonl("flows.jsonl", [flow])
+        writer.write_jsonl("frames.jsonl", [frame])
+        writer.commit()
+    run_id = "traffic-intelligence-browser"
+    server._runs[run_id] = {"run_id": run_id, "workspace": str(workspace), "status": "done"}
+    client = TestClient(server.app)
+
+    overview = client.get(f"/api/runs/{run_id}/traffic-intelligence")
+    flows = client.get(f"/api/runs/{run_id}/traffic-intelligence/flows")
+    details = client.get(
+        f"/api/runs/{run_id}/traffic-intelligence/flows/{flow.flow_id}"
+    )
+    frame_details = client.get(f"/api/runs/{run_id}/traffic-intelligence/frames/1")
+
+    assert overview.status_code == 200
+    assert overview.json()["undeclared_observed"][0]["flow_ids"] == [flow.flow_id]
+    assert flows.status_code == 200
+    assert flows.json()["flows"][0]["flow_id"] == flow.flow_id
+    assert flows.json()["payload_included"] is False
+    assert details.json()["alignments"][0]["overall"] == "UNDECLARED_OBSERVED"
+    assert details.json()["payload_included"] is False
+    assert frame_details.json()["frame"]["frame_number"] == 1
+    assert frame_details.json()["payload_included"] is False
     server._runs.pop(run_id, None)

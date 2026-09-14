@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Optional
 
 
-DEFAULT_SUBDIRS = ["evidence", "audit-results", "tokens", "logs", "pcap_analysis", "context"]
+# 分析产物目录必须由对应 writer 在成功提交时创建。预建空的
+# pcap_analysis/ 会被误认为已有可用索引，traffic-intelligence/ 也同理。
+DEFAULT_SUBDIRS = ["evidence", "audit-results", "tokens", "logs", "context"]
 
 
 def init_workspace(path: str | Path, subdirs: Optional[list[str]] = None) -> dict:

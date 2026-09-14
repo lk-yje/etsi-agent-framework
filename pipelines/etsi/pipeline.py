@@ -674,14 +674,13 @@ class TrafficCollectStage(Stage):
     2. 确定抓包网卡
     3. 启动 tshark 后台抓包 + xray 被动扫描
     4. 配置 Burp 上游代理 → xray
-    5. 打印用户操作清单，等待用户回复「完成」
+    5. 打开连续操作窗口，等待用户从头到尾完成全部操作
     6. 停止 tshark + xray
-    7. 运行 pcap_analyzer 批量分析
+    7. 生成 Traffic Intelligence 主 Bundle
+    8. 最佳努力生成迁移期 pcap_analysis 兼容输出
     """
 
-    # 用户操作清单（来自 SKILL.md 阶段 3.1 步骤 ③）
-    # ③ 用户逐一触发: 浏览功能页 · 固件更新检查 · 固件上传(old+tampered) · 音视频播放 · 表单提交
-    # ④ 用户确认「完成」→ 停 xray → 停 tshark → 跑 pcap_analyzer → 移除 Burp 上游代理
+    # 用户只控制连续窗口的开始和结束，不逐步标记或给流量打人工标签。
     async def execute(self, workspace, registry, pipeline):
         bus = pipeline.bus
         telemetry = pipeline.telemetry
@@ -831,7 +830,7 @@ class TrafficCollectStage(Stage):
                 pipeline_id, "TRAFFIC", "channels_liveness_verified",
             )
             self._print_operation_checklist(dut_ip, capture_pcap, True, True, checklist)
-            (workspace / "traffic_collection_checklist.md").write_text(
+            (workspace / "traffic_collection_window.md").write_text(
                 self._build_checklist_md(dut_ip, capture_pcap, True, True, checklist), encoding="utf-8",
             )
 
@@ -873,25 +872,88 @@ class TrafficCollectStage(Stage):
                             outcome_reason = "capture.pcap < 1KB，可能没有有效用户操作流量"
                             telemetry.log_stage_event(pipeline_id, "TRAFFIC", "pcap_too_small", warning=outcome_reason)
                         else:
-                            traffic_state.transition("ANALYZING", "pcap_analysis_started", pcap_size_kb=round(pcap_size_kb, 1))
-                            pcap_output = workspace / "pcap_analysis"
-                            if await self._run_pcap_analyzer(
-                                capture_pcap, pcap_output, dut_ip,
+                            traffic_state.transition(
+                                "ANALYZING",
+                                "traffic_intelligence_started",
+                                pcap_size_kb=round(pcap_size_kb, 1),
+                            )
+                            resolved_tools = {"tshark": tshark_path} if tshark_path else {}
+                            if resolver:
+                                try:
+                                    easytshark_path = resolver.get_tool_path(
+                                        "easytshark_analyzer"
+                                    )
+                                except AttributeError:
+                                    easytshark_path = None
+                            else:
+                                easytshark_path = shutil.which("easytshark-analyzer")
+                            if easytshark_path:
+                                resolved_tools["easytshark_analyzer"] = easytshark_path
+                            intelligence_ok = await self._run_traffic_intelligence(
+                                workspace,
+                                capture_pcap,
+                                dut_ip,
                                 {
                                     **receipt_context,
-                                    "artifact_refs": ["pcap_analysis"],
-                                    # 本次采集已使用这个经过 preflight 核验的可执行文件。
-                                    # 传给分析子进程，避免回退到历史硬编码 D: 路径。
-                                    "resolved_tools": {"tshark": tshark_path} if tshark_path else {},
+                                    "artifact_refs": ["traffic-intelligence"],
+                                    "resolved_tools": resolved_tools,
                                 },
-                            ):
-                                telemetry.log_stage_event(pipeline_id, "TRAFFIC", "pcap_analyzer_done", output=str(pcap_output))
-                                outcome = "COMPLETE"
-                                outcome_reason = "双通道采集、pcap 分析与清理完成"
-                            else:
+                            )
+                            if not intelligence_ok:
                                 outcome = "FAILED"
-                                outcome_reason = "pcap_analyzer 执行失败或超时"
-                                telemetry.log_stage_event(pipeline_id, "TRAFFIC", "pcap_analyzer_failed", reason=outcome_reason)
+                                outcome_reason = "Traffic Intelligence 执行失败"
+                                telemetry.log_stage_event(
+                                    pipeline_id,
+                                    "TRAFFIC",
+                                    "traffic_intelligence_failed",
+                                    reason=outcome_reason,
+                                )
+                            else:
+                                telemetry.log_stage_event(
+                                    pipeline_id,
+                                    "TRAFFIC",
+                                    "traffic_intelligence_done",
+                                    output=str(workspace / "traffic-intelligence"),
+                                )
+
+                                # 旧 pcap_analysis 仅保留为迁移期兼容产物。它不能再阻断
+                                # Traffic Intelligence 主流程，也不能成为 Agent 首要入口。
+                                pcap_output = workspace / "pcap_analysis"
+                                legacy_analysis_ok = await self._run_pcap_analyzer(
+                                    capture_pcap, pcap_output, dut_ip,
+                                    {
+                                        **receipt_context,
+                                        "artifact_refs": ["pcap_analysis"],
+                                        "resolved_tools": (
+                                            {"tshark": tshark_path} if tshark_path else {}
+                                        ),
+                                    },
+                                )
+                                if legacy_analysis_ok:
+                                    telemetry.log_stage_event(
+                                        pipeline_id,
+                                        "TRAFFIC",
+                                        "pcap_analyzer_compat_done",
+                                        output=str(pcap_output),
+                                    )
+                                    outcome_reason = (
+                                        "双通道采集、Traffic Intelligence 分析与兼容输出完成"
+                                    )
+                                else:
+                                    # 不留下可能被误认为完整结果的空目录或半成品。
+                                    if pcap_output.is_dir():
+                                        shutil.rmtree(pcap_output, ignore_errors=True)
+                                    telemetry.log_stage_event(
+                                        pipeline_id,
+                                        "TRAFFIC",
+                                        "pcap_analyzer_compat_failed",
+                                        reason="迁移期兼容输出失败；不影响主 Bundle",
+                                    )
+                                    outcome_reason = (
+                                        "双通道采集与 Traffic Intelligence 分析完成；"
+                                        "迁移期 pcap_analysis 兼容输出不可用"
+                                    )
+                                outcome = "COMPLETE"
         except Exception as exc:
             outcome = "FAILED"
             outcome_reason = f"Traffic 阶段异常: {type(exc).__name__}: {exc}"
@@ -1358,12 +1420,80 @@ class TrafficCollectStage(Stage):
             record_tool_receipt(receipt_context, "pcap_analyzer", {"operation": "run", "argv": cmd}, str(exc), True, started_at, datetime.now())
             return False
 
+    @staticmethod
+    async def _run_traffic_intelligence(
+        workspace: Path,
+        capture_pcap: Path,
+        dut_ip: str | None,
+        receipt_context: dict | None = None,
+    ) -> bool:
+        """生成统一 Traffic Intelligence Bundle，并记录阶段级收据。"""
+        from dataclasses import replace
+
+        from framework.tool_receipts import record_tool_receipt
+        from framework.traffic_intelligence.pipeline import (
+            TrafficIntelligencePipeline,
+            TrafficIntelligenceSettings,
+        )
+
+        started_at = datetime.now()
+        resolved_tools = (receipt_context or {}).get("resolved_tools", {})
+        tshark_path = str(resolved_tools.get("tshark") or "tshark")
+        settings = TrafficIntelligenceSettings.from_environment()
+        easytshark_path = resolved_tools.get("easytshark_analyzer")
+        if easytshark_path and not settings.easytshark_path:
+            settings = replace(settings, easytshark_path=str(easytshark_path))
+        capture_host = TrafficCollectStage._capture_host(dut_ip) if dut_ip else None
+        params = {
+            "operation": "analyze",
+            "capture": str(capture_pcap),
+            "requested_backend": settings.backend,
+            "payload_policy": settings.payload_policy,
+        }
+        try:
+            result = await asyncio.to_thread(
+                TrafficIntelligencePipeline(settings).run,
+                workspace,
+                capture_path=capture_pcap,
+                dut_addresses=[capture_host] if capture_host else [],
+                tshark_path=tshark_path,
+            )
+            summary = json.dumps({
+                "status": "complete",
+                "backend": result.manifest.analysis_backend,
+                "fallback_reason": result.manifest.fallback_reason,
+                "frame_count": result.frame_count,
+                "flow_count": result.flow_count,
+                "capture_sha256": result.manifest.capture_sha256,
+            }, ensure_ascii=False)
+            record_tool_receipt(
+                receipt_context,
+                "traffic_intelligence",
+                params,
+                summary,
+                False,
+                started_at,
+                datetime.now(),
+            )
+            return True
+        except Exception as exc:
+            record_tool_receipt(
+                receipt_context,
+                "traffic_intelligence",
+                params,
+                f"{type(exc).__name__}: {exc}",
+                True,
+                started_at,
+                datetime.now(),
+            )
+            return False
+
     @classmethod
     def _print_operation_checklist(
         cls, dut_ip: str | None, capture_pcap: Path, tshark_ok: bool, xray_ok: bool,
         checklist: list[dict],
     ) -> None:
-        """打印用户操作清单"""
+        """打印连续操作窗口说明，不要求逐项确认或打标签。"""
         cls._safe_print()
         cls._safe_print("=" * 60)
         cls._safe_print("  [Traffic Capture] Please operate the DUT to generate traffic")
@@ -1374,11 +1504,8 @@ class TrafficCollectStage(Stage):
         cls._safe_print(f"  tshark: {'[RUNNING]' if tshark_ok else '[UNAVAILABLE]'}")
         cls._safe_print(f"  xray:   {'[RUNNING] (127.0.0.1:7778)' if xray_ok else '[UNAVAILABLE]'}")
         cls._safe_print()
-        cls._safe_print("  Please perform the following operations via Burp proxy (127.0.0.1:8080):")
-        cls._safe_print()
-        for i, item in enumerate(checklist, 1):
-            suffix = "" if item.get("required", True) else "（可选 / 可标 N/A）"
-            cls._safe_print(f"  {i}. {item['label']}{suffix}")
+        cls._safe_print("  Operate the DUT continuously from start to finish via Burp proxy")
+        cls._safe_print("  (127.0.0.1:8080). No per-step labels or confirmations are required.")
         cls._safe_print()
         cls._safe_print("  " + "=" * 50)
         cls._safe_print("  When done, type 'done' and press Enter.")
@@ -1400,12 +1527,11 @@ class TrafficCollectStage(Stage):
             f"- tshark: {'运行中' if tshark_ok else '不可用'}",
             f"- xray: {'运行中 (127.0.0.1:7778)' if xray_ok else '不可用'}",
             "",
-            "## 操作清单",
+            "## 连续操作窗口",
             "",
+            "从开始到结束连续完成本次需要的全部设备操作；中途不分步骤、不打标签、",
+            "不逐项确认。完成全部操作后只需点击一次“完成采集”。",
         ]
-        for i, item in enumerate(checklist, 1):
-            suffix = "" if item.get("required", True) else "（可选 / 可标 N/A）"
-            lines.append(f"{i}. {item['label']}{suffix}")
         lines.append("")
         lines.append("## Burp 代理配置")
         lines.append("")

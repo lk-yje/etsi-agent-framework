@@ -15,6 +15,7 @@
 ### 1. 创建环境并安装依赖
 
 ```powershell
+# 若系统没有 `py` launcher，改为已安装 Python 的绝对路径执行同一命令。
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[web,dev]"
@@ -138,6 +139,8 @@ agent_framework/
 │   ├── tools.py        # ToolDef/ToolRegistry
 │   └── orchestrator.py # AgentOrchestrator
 │
+│   ├── traffic_intelligence/ # PCAP 主分析：完整性 Bundle、Direct Tshark、可选 Batch Worker
+│
 ├── pipelines/etsi/     # ETSI 业务逻辑
 │   ├── pipeline.py     # ETSIPipeline (9 个 Stage)
 │   ├── modules.py      # M0-M5 模块定义
@@ -150,7 +153,7 @@ agent_framework/
 ├── scripts/            # 确定性脚本
 │   ├── validate_evidence.py   # L1 证据校验
 │   ├── pipeline_phase_gate.py # 阶段闸门
-│   ├── pcap_analyzer.py       # tshark 批量分析
+│   ├── pcap_analyzer.py       # 旧 tshark 条款输出兼容层（非主分析入口）
 │   ├── preprocess_m4_ixit.py  # M4 IXIT 预处理
 │   └── evidence_to_md.py      # Evidence JSON → MD
 │

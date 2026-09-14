@@ -1,12 +1,28 @@
 # ETSI Agent Framework 前后端重构与落地实施计划
 
-> 重新审计版（2026-08-18）  
-> 适用仓库：`D:\HIKvision\etsi-agent-framework-master`  
-> 本文只以当前仓库代码为事实依据，不继承既有方案的结论。新会话应先读本文，再按阶段实施。  
-> 当前限制：这是私人电脑；项目内 `skills/path-mapping.json` 属于另一台工作机；DUT 位于暂不可达的内网。因此，本阶段以离线架构整改、契约测试和仿真验证为主，不能把 mock 或历史 smoke 结果当成真机检测能力证明。
+> 历史实施计划与当前增量状态（原始重新审计版：2026-08-18；2026-09-14 更新公司部署状态）
+> 适用仓库：当前 Git 仓库根目录
+> 当前事实的阅读顺序：`README.md` → `docs/TRAFFIC_INTELLIGENCE_EASYTSHARK_INTEGRATION_PLAN.md` → 本文顶部“当前流量实现 / 实施进度”。下文保留历史发现、决策背景和待办，不能逐句当作当前能力声明。
+> 当前限制：本公开仓库不保存公司环境的真机 DUT 测试材料。本阶段只维护、验证并清理可公开源码；不能把 mock、合成 PCAP 或公开仓库的历史 smoke 结果当成私有真机检测能力的替代品。
+
+### 2026-09-14 公司部署与实测状态（覆盖本文历史“待部署 / 待验收”措辞）
+
+- 用户确认：项目已在公司电脑成功部署，并已完成 **5 轮实际全量测试**。
+- 原始 DUT 证据、PCAP、认证流量、凭据、环境路径和正式结果包均留在私有工作区，按公开边界不进入 GitHub。
+- 因此，本文下方的“尚未部署”“等待内网”“真机 UAT 未完成”等历史记录，只描述当时的公开源码或本机状态，**不得再用来描述项目实际交付状态**。
+- 公开仓库继续保留 Direct Tshark 默认回退和 A/B 基准，确保无私有 Worker 或私有证据时仍可安全复现框架行为。
+
+### 2026-09-12 当前流量实现（覆盖下文历史 checklist 设计）
+
+- 抓包交互固定为“开始 → 用户连续完成全部设备操作 → 完成”，不采集逐步骤勾选、人工标签或补录时间点。
+- `tshark` 是帧级事实来源；Traffic Intelligence 先生成完整性受控的主 Bundle，EasyTshark 仅作为可选批处理 Worker，失败自动回退 Direct Tshark。
+- `scripts/pcap_analyzer.py` 只保留为主 Bundle 成功后的最佳努力兼容输出；失败不阻断主流量阶段，也不得被 Work Agent 用来绕过主 Bundle 校验。
+- 条款流量证据使用 `flowIds` / `frameNumbers` 结构化引用；报告优先从已校验 Bundle 解析并生成 PCAP 切片请求，旧 `pcap_analysis/_index.json` 仅在条款没有新式引用时兼容回退。
+- UNKNOWN、高熵、无 TLS 不能直接证明私有协议语义或已加密；原始 PCAP、Payload、SQLite、私有 dissector、密钥和派生 Decode-As 目录均不得进入公开 Git。
 
 ### 实施进度
 
+- [x] M1-M5 功能测试：用户确认已在授权环境完成。公开仓库只保留框架、匿名化资料和回归；真实 DUT 证据、PCAP、认证流量与凭据均保持在私有工作区，因此不能由公开仓库代替正式证据包。
 - [x] A1 凭据基线：`.env.template` 已占位化，未创建或改动私人 `.env`，并增加回归测试。
 - [x] A2 Python/依赖：Python 3.11.9 项目 `.venv`、`.[web,dev]`、Web 依赖和 CLI 安装入口已配置。
 - [x] A3 CLI 退出码：结构化 error 或 run 未到 DONE 时返回非零退出码。
@@ -17,7 +33,7 @@
 - [x] E2-R 概念性定点打回：L2 REJECT 持久记录 retry round、目标条款、理由和新旧 evidence hash；仅重做目标概念条款，保留未命中 evidence，并在最多两次重试内重走 L1 → L2。**已真实运行验证**（3 轮审计 retry_count=2 均按定点返工闭环）；但**仍存在审计/证据质量问题**（ICS/IXIT 矛盾，如"自动更新声称 vs IXIT 全 Manual"），需在收紧证据后下轮复核。
 - [ ] F1 功能性审计重试与 PhaseEngine 收敛：现有 M1-M5 `_retry_work_for_clauses()` 会绕开 PhaseEngine 直接重写 `pre-Mx-evidence.json`，与 phase 受限工具、正式归档和证据合并原则冲突。该问题已登记，**本轮不改功能性执行**；后续必须将功能性定点重做改为 PhaseEngine 的受控重执行，而非复用现有直接写文件路径。
 - [x] E3 执行收据与最小执行边界：Agent Tool-Use、Traffic 系统工具均写原子 receipt；工作区、DUT 目标与明显危险脚本受策略约束；报告/条款证据包可索引收据与产物引用。
-- [x] H1 Traffic 交互核心：后端状态机驱动开始/完成/跳过门禁；清单项以复选框、状态、操作说明和证据相对路径持久化到工作区。
+- [x] H1 Traffic 交互核心：后端状态机驱动开始/完成/跳过门禁；正式操作窗是单段连续无标签采集，不要求逐项复选或人工标注。
 - [x] C1 RunManager 基线：命令、白名单环境、启动日志句柄、注册表原子持久化与安全 reconcile 已从路由提取为 `web/run_manager.py`。
 - [x] B/S 准备页 P1/P2：受控 workspace 创建、离线 preflight、IXIT JSON/XLSX 与 old/tampered 固件本地引用已接入控制台；浏览器不上传字节，IXIT 复用现有 `scripts/parse_ixit_xlsx.py` 生成 Agent 消费的归一化 JSON，manifest 记录来源路径与 hash。
 - [x] H2 运行管理收尾：终态 run 可只移除 `.runs.json` 登记且保留全部 workspace 产物；取消过程以“请求 → Traffic 清理 → Burp 恢复 → Pipeline 取消终态”公开显示；`resume` 保持未开放。
@@ -25,7 +41,7 @@
 - [ ] C 仍为部分落地；D、F1-F3 与 G 的证据包/HTML 离线实现已完成；H 的完整交互收敛和真机验收仍见本文后续阶段。
 - [ ] 断网重连 resume（暂停/续跑，真机阶段确认的需求）：断网或瞬时错误后应可「暂停等待恢复」而非直接进终态。落地前提待做：PhaseEngine 阶段幂等、Traffic 旧抓包/旧 Burp 状态恢复、M1-M5 evidence hash 跳过规则（见 C2/F1）。未落地前维持「失败即新 workspace、不 resume」。
 
-当前回归基线：本次 H2/B/S 本地引用相关 `31 passed`；此前全量离线基线为 `163 passed, 3 skipped`，且 `scripts/validate_clause_alignment.py --strict` 通过（私人电脑离线环境）。
+当前回归基线：Traffic Intelligence、报告、契约及相关回归测试已通过；2026-09-12 完整离线套件为 **286 passed、3 skipped、4 failed**。4 个旧 MCP 测试仅因当前隔离测试依赖缺少 Windows `pywintypes` 而在导入期失败。合成 PCAP 不含真实设备数据或 Payload。
 
 ### 2026-08-20 M0 概念全量运行遗留待做
 
@@ -41,7 +57,7 @@
 
 1. **运行环境闭环仍需部署验证**：Python 3.11.9 项目 `.venv` 与 Web 依赖已配置；但其他工作机的安装、入口和版本锁定仍需按 A 阶段复核。
 2. **凭据与配置边界不安全**：`.env.template` 中出现真实形态的 API Key；Burp Token 通过命令行并回传到 API 响应；浏览器可提交任意 workspace 路径。
-3. **Traffic 离线状态机已落地，真机仍待验收**：`traffic_state.json` 已记录“通道就绪 → 用户开始操作 → checklist → 完成/清理/分析”；但尚未用本机不可达的内网 DUT 验证真实双通道、Burp 恢复和 PCAP 质量。
+3. **Traffic 离线状态机已落地，真机仍待验收**：`traffic_state.json` 已记录“通道就绪 → 用户开始连续操作 → 完成/清理 → Traffic Intelligence 分析”；但尚未在可达内网 DUT 上验证真实双通道、Burp 恢复和 PCAP 质量。
 4. **失败语义可能失真**：tshark/xray 全不可用时 Traffic 阶段直接返回，Pipeline 仍继续；M1-M5 持续审计失败时存在阶段级循环；Round-2 跨模块审计无条件签发接受令牌。
 5. **条款静态对齐和基础执行收据已建立，但真机 UAT 尚未闭环**：67 条均已有 recipe、IXIT 表导航、证据产物与三态 oracle；recipe 已注入当前 Work task。每次受 `ToolRegistry` 管理的调用及 Traffic 核心工具已记录 receipt；仍缺可达 DUT 上的逐条执行、人工操作确认和第三方复现证明。
 6. **前后端数据契约仍是“从文件猜状态”**：后端通过反复读取整份 JSONL、推断 Traffic 是否等待；前端硬编码阶段并漏掉 `m0_audit`；运行恢复只恢复 Pipeline 快照，不等于阶段级幂等恢复。
@@ -130,7 +146,7 @@ INIT → ENV_CHECK → ICS_PARSE → M0_ICS → M0_CONCEPT(62) → M0_L1 → M0_
 ### 3.3 P2：可维护性与体验
 
 - 前端阶段表漏 `m0_audit`，应由后端动态返回。
-- checklist 可能跨 run 串状态，勾选只存在 DOM。
+- Traffic 操作状态必须以工作区状态文件为单一事实源，不能只存在于页面 DOM（已由连续无标签状态机解决）。
 - `/events` 每次读完整 JSONL，长期运行退化。
 - `_runs` 的 Popen 仅在内存，Server 重启后状态失真。
 - 没有 stop/cancel；关闭网页不会停止 Pipeline 与工具。
@@ -196,7 +212,7 @@ web = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
 安装 Python 后执行：
 
 ```powershell
-cd D:\HIKvision\etsi-agent-framework-master
+cd <repository-root>
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -310,13 +326,13 @@ action：
 
 **已落地（离线）**：`framework/traffic_state.py` 原子写入工作区 `traffic_state.json`；Web 只有在 `WAITING_START` 才能发送 `start`，只有在 `WAITING_FINISH` 且所有必做项已记录后才能 `done`，`skip` 强制填写原因。控制 token 扩展为 `traffic_user_start|done|skip`，只用于唤醒独立 Pipeline 子进程。旧 attempt 在 Pipeline 重入时记为 interrupted，绝不假装可重新接管已丢失的进程句柄。
 
-### D2. Checklist 单一事实源
+### D2. 连续无标签操作窗（取代历史 Checklist 设计）
 
-删除 Pipeline 与 Server 双份 checklist，建立版本化 `pipelines/etsi/traffic_checklist.json`。至少拆成：功能页、更新检查、old 固件上传、tampered 固件上传、音视频、表单、可选项/N-A。
+不再让操作者逐项勾选、分步骤打标签或补时间点。Pipeline 与 Web 只保留开始、完成、跳过三类控制动作；开始与完成之间的全部设备操作属于同一个连续正式采集窗口。
 
-old 与 tampered 必须分别记录请求/响应、设备提示、版本/重启状态和 evidence，才能独立支持 5.3-2 与 5.3-9。
+old/tampered 固件、音视频、表单等业务归属由后续自动活动窗口、Flow、Burp history 和条款工具证据关联；没有足够归属证据时必须判 INCONCLUSIVE，不得要求操作者回填标签来制造确定性。
 
-**已落地（离线）**：唯一模板为 `pipelines/etsi/traffic_checklist.json`，Pipeline、Web API 与前端共同读取。old/tampered 已拆为两个不可混淆的 item，并预留 request、response、device_prompt、version_or_reboot 证据字段；网页的完成/N-A 记录刷新后仍保留，报告同步展示 Traffic 状态与 checklist 审计记录。
+**已落地（离线）**：`traffic_checklist.json` 只保留单个连续操作窗的说明性元数据；状态与报告不再展示逐步骤完成记录。前端在 `WAITING_START` 允许开始，在 `WAITING_FINISH` 允许直接完成。
 
 ### D3. 清理保证与离线 fake
 
@@ -376,7 +392,7 @@ M4 更新机制首批：5.3-3、5.3-4、5.3-5、5.3-7、5.3-8、5.3-11、5.3-12�
 
 `read_file/write_file` 必须限制 workspace；shell 命令经 execution policy 校验 DUT/网段；破坏性 recipe 要前端确认；`python_script` 使用 `sys.executable`。
 
-**已落地（第一、二层）**：`framework/tool_receipts.py` 以每次调用一个原子 JSON 的方式写入 `tool-receipts/`。Agent 多轮 Tool-Use 经 `ToolRegistry.execute()` 自动附带 workspace、module、phase、phase 条款范围与 attempt；参数和返回值保存 SHA-256 与脱敏预览，不写 token/password/Authorization 明文。`TrafficCollectStage` 的 tshark/xray 启停及 pcap_analyzer 同样写入阶段级收据（`TRAFFIC / 3.1`），但不伪造子条款归属。
+**已落地（第一、二层）**：`framework/tool_receipts.py` 以每次调用一个原子 JSON 的方式写入 `tool-receipts/`。Agent 多轮 Tool-Use 经 `ToolRegistry.execute()` 自动附带 workspace、module、phase、phase 条款范围与 attempt；参数和返回值保存 SHA-256 与脱敏预览，不写 token/password/Authorization 明文。`TrafficCollectStage` 的 tshark/xray 启停、Traffic Intelligence 主分析及兼容 `pcap_analyzer` 同样写入阶段级收据（`TRAFFIC / 3.1`），但不伪造子条款归属。
 
 `ToolExecutionPolicy` 已在有 workspace 上下文的调用前执行：`read_file/write_file` 只能在工作区内；网络目标只能为 `run_config.json` 声明的 `dut_ip` 或 `authorized_targets`；明显破坏性 shell、管道下载执行和危险 `python_script` 会被拒绝。允许/拒绝决定写入同一 receipt。工具版本只复用 `environment_snapshot.json` 已记录的值，未记录即明确写 `not_recorded`，不以隐式探测伪造环境事实。成功的 `write_file` 与 Traffic 的 `capture.pcap`、`xray_run.log`、`pcap_analysis` 会写入 `artifact_refs`；报告构建按显式 `clause_ids` 把 phase receipt 链接到对应条款证据包，阶段级无条款收据只计入总数。
 
@@ -448,11 +464,11 @@ Round 1 与 Round 2 Audit 现在通过 `framework/audit_tools.py` 获得 `read_a
 
 证据按实际类型而非按文件扩展名强行统一。示例：5.6-1 可同时保存 Nmap 输出与 `15-Intf` 摘录；5.6-2 保存 curl/Banner 原件；两个条款引用同一 Nmap 原件时保留相同 SHA-256，而不是伪造两次扫描。缺失文件会明确记录 `declared_but_missing`，不会补造。
 
-PCAP 是共享原件：默认只记录 `capture.pcap` 的哈希引用，不复制到每一个条款 ZIP。仅当 `pcap_analyzer` 的条款输出存在明确 `frame.number`、原始抓包存在且 `PathResolver` 能找到 tshark 时，Web 才显示“生成本条款 PCAP 切片”按钮；该按钮按需生成 `pcap_slice.pcapng`。缺任一条件则保存 `no_capture`、`no_frame_index`、`tshark_unavailable` 或 `slice_failed`，不得猜测帧号。
+PCAP 是共享原件：默认只记录 `capture.pcap` 的哈希引用，不复制到每一个条款 ZIP。条款 evidence 通过 `flowIds` / `frameNumbers` 明确引用 Traffic Intelligence；报告器先校验 Bundle manifest 和 artifact，再解析代表帧并按需生成 `pcap_slice.pcapng`。条款没有新式结构化引用时才读取旧 `pcap_analysis/_index.json`。缺原始抓包、明确帧号或 tshark 时保存对应状态，不得从 description 猜测帧号。
 
 ### G2. 已落地：Markdown 同源渲染
 
-`write_report_bundle()` 现从同一份 report-data 写出根目录 `认证检测报告_<型号>_<日期>.md`、`reports/` 下独立 HTML 和 `report-data.json`。Markdown 保留任务编号、样品信息、Traffic checklist、统计、审计、逐条款、复现/手工指引和证据包附录；工具/环境没有 receipt 时会明确标注“未记录”，不再硬编码成已执行。
+`write_report_bundle()` 现从同一份 report-data 写出根目录 `认证检测报告_<型号>_<日期>.md`、`reports/` 下独立 HTML 和 `report-data.json`。Markdown 保留任务编号、样品信息、连续无标签 Traffic 状态、Traffic Intelligence 摘要、统计、审计、逐条款、复现/手工指引和证据包附录；工具/环境没有 receipt 时会明确标注“未记录”，不再硬编码成已执行。
 
 为避免破坏已验证的原始记录交付路径，`ReportGenerationStage` 的旧拼装块暂时保留，但最终文件由 `write_report_bundle()` 统一写入。删除该死路径前必须补“旧/新渲染结果栏目对照”测试。报告增强的下一批内容为环境快照、输入 hash、tool receipt、simulation、打印 CSS、筛选与无障碍验证。
 
@@ -462,7 +478,7 @@ PCAP 是共享原件：默认只记录 `capture.pcap` 的哈希引用，不复�
 
 建议四个区：环境与输入、运行控制、Traffic/实时状态、报告与证据。
 
-**已落地的核心交互**：后端返回 `m0_audit` 并由前端 stepper 展示；Traffic 只在 `WAITING_START` 允许“开始操作”、只在 `WAITING_FINISH` 且必做项已完成/N-A 时允许“完成采集”；清单由 `traffic_state.json` 重新加载，使用真实 checkbox/label、状态选择、操作说明和证据相对路径字段；安全停止写协作取消信号；报告页支持条款展开、证据包下载和有帧索引时的按需 PCAP 切片。运行中的报告页会随轮询刷新，终态自动停轮询；逐条款详情使用 button、`aria-expanded` 和 `hidden`，支持键盘与读屏操作。
+**已落地的核心交互**：后端返回 `m0_audit` 并由前端 stepper 展示；Traffic 只在 `WAITING_START` 允许“开始操作”，在 `WAITING_FINISH` 允许“完成采集”，中间不要求 checklist、标签或时间点；安全停止写协作取消信号；报告页支持条款展开、证据包下载和有结构化帧引用时的按需 PCAP 切片。运行中的报告页会随轮询刷新，终态自动停轮询；逐条款详情支持键盘与读屏操作。
 
 **后续收敛项**：
 
@@ -485,7 +501,7 @@ PCAP 是共享原件：默认只记录 `capture.pcap` 的哈希引用，不复�
 | Prompt 隔离 | 否 | Work/Audit 不串线、recipe 正确 |
 | FastAPI TestClient | 否 | 路径、secret、run 状态、Traffic 权限 |
 | Fake process | 否 | start/stop/resume/exit/reconcile |
-| Fake Traffic | 否 | ready/start/checklist/finish/cleanup/analyze |
+| Fake Traffic | 否 | ready/start/continuous-window/finish/cleanup/analyze/fallback |
 | Mock Agent | 否 | M0、M1-M5、Round-2 gate、报告 |
 | HTML/a11y | 否 | 渲染、筛选、键盘、XSS |
 | 真实工具版本 | 部分 | 仅证明私人电脑，不证明工作机 |
@@ -501,7 +517,7 @@ PCAP 是共享原件：默认只记录 `capture.pcap` 的哈希引用，不复�
 
 前置：工作机自己的 PATH_MAPPING、DUT 授权与可达、Burp secret、工具版本、输入 hash、old/tampered 样本和恢复方案均就绪。
 
-Traffic 验收：Preflight → 两通道真实运行 → WAITING_START → 点击开始并记时间 → 逐项完成（old/tampered 分开）→ 完成 → 停 xray → 停 tshark/flush → analyzer → 恢复 Burp。验证 pcap 非空、Analyzer schema 合法、状态 COMPLETE。再人为制造 analyzer 失败，确认 blocked/needs_review 而非伪成功。
+Traffic 验收：Preflight → 两通道真实运行 → WAITING_START → 点击开始 → 连续完成全部设备操作 → 完成 → 停 xray → 停 tshark/flush → Traffic Intelligence 主分析 → 可选兼容 analyzer → 恢复 Burp。验证 PCAP 非空、主 Bundle 完整、状态 COMPLETE；再分别验证 EasyTshark Worker 失败时回退 Direct Tshark，以及主分析失败时 blocked/needs_review 而非伪成功。
 
 所有 full 条款逐项保留 recipe version、tool receipt、原始 artifact、expected/actual、oracle、audit finding，并由另一位测试员复现。任何 full 条款无 receipt 或 parser trace，都视为能力未落地。
 
@@ -517,7 +533,7 @@ Traffic 验收：Preflight → 两通道真实运行 → WAITING_START → 点�
 | M3 Traffic | D1-D3 | 是（fake） | 状态机与 cleanup 测试全绿 |
 | M4 条款闭环 | E1-E4 | 是（主体） | 68/68 catalog；M0 概念 62/62、M1-M5 功能/混合 47/47 静态校验全绿 |
 | M5 审计 | F1-F3 | 是 | 无无限循环、无伪 ACCEPT、Round-2 有 gate |
-| M6 报告/UI | G/H | 是 | report-data、独立 HTML、类型化条款证据包、可审计 checklist |
+| M6 报告/UI | G/H | 是 | report-data、独立 HTML、类型化条款证据包、结构化 Flow/frame 引用 |
 | M7 真机 UAT | 第 7 节 | 否 | full 条款逐项签收 |
 
 新窗口从 **A1 → A2 → A3** 开始，不要先改前端样式；然后做 B/C，再推进 D fake 和 E catalog。
@@ -547,7 +563,7 @@ Traffic 验收：Preflight → 两通道真实运行 → WAITING_START → 点�
 - 68/68 canonical test group 有 catalog；M0 概念 62/62、M1-M5 功能/混合 47/47 有明确执行面；full 有 executable step/parser、evidence requirements 和 oracle；
 - M0-M5/Round-2 verdict 能真实阻断，无无限循环或伪 ACCEPT；
 - JSON/Markdown/HTML/条款证据包同源，可追到条款原始 evidence 与 receipt；
-- Traffic 前端实现“通道就绪 → 开始操作 → checklist → 完成/清理/分析”；
+- Traffic 前端实现“通道就绪 → 开始操作 → 连续完成全部设备操作 → 完成/清理/分析”；
 - 离线测试全绿，真机 UAT 对全部 full 条款逐项签收。
 
 当前私人电脑最多完成 M6 的离线部分；**M7 真机 UAT 是不可替代的最终门槛。**

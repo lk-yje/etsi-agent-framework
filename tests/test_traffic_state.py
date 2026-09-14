@@ -29,16 +29,13 @@ def _initialized_store(tmp_path):
     return store
 
 
-def test_traffic_state_persists_checklist_and_reentry_is_explicit(tmp_path):
+def test_traffic_state_uses_continuous_unlabelled_window_and_reentry_is_explicit(tmp_path):
     store = _initialized_store(tmp_path)
     store.transition("WAITING_START", "waiting_for_user_start")
-    store.update_check_item("firmware_upload_old", "done", note="device rejected", evidence=["capture.pcap"])
 
     persisted = json.loads((tmp_path / "traffic_state.json").read_text(encoding="utf-8"))
-    item = next(x for x in persisted["checklist"] if x["id"] == "firmware_upload_old")
-    assert item["status"] == "done"
-    assert item["note"] == "device rejected"
-    assert item["evidence"] == ["capture.pcap"]
+    assert persisted["operation_mode"] == "continuous_unlabelled"
+    assert persisted["checklist"] == []
 
     # 进程重入不能假装重新接管旧进程；旧 attempt 必须明确留下 interrupted 记录。
     version, checklist = load_traffic_checklist()
@@ -102,7 +99,7 @@ def _configure_runtime(tmp_path, monkeypatch):
     return root
 
 
-def test_traffic_api_enforces_start_checklist_and_skip_reason(tmp_path, monkeypatch):
+def test_traffic_api_enforces_start_finish_order_and_skip_reason(tmp_path, monkeypatch):
     root = _configure_runtime(tmp_path, monkeypatch)
     workspace = root / "case-traffic"
     workspace.mkdir()
@@ -123,22 +120,17 @@ def test_traffic_api_enforces_start_checklist_and_skip_reason(tmp_path, monkeypa
     assert started.status_code == 200
     assert (workspace / "tokens/traffic_user_start").exists()
 
-    # Pipeline 收到 start 后才会打开正式的 checklist 记录窗口。
+    # Pipeline 收到 start 后打开一个连续操作窗口，不要求逐项标签。
     store.transition("WAITING_FINISH", "waiting_for_user_finish")
-    not_ready = client.post(f"/api/runs/{run_id}/traffic/confirm", json={"action": "done"})
-    assert not_ready.status_code == 409
-
-    for item in store.read()["checklist"]:
-        if item["required"]:
-            response = client.put(
-                f"/api/runs/{run_id}/traffic/checklist/{item['id']}",
-                json={"status": "done", "note": "recorded"},
-            )
-            assert response.status_code == 200
-
     finished = client.post(f"/api/runs/{run_id}/traffic/confirm", json={"action": "done"})
     assert finished.status_code == 200
     assert (workspace / "tokens/traffic_user_done").exists()
+
+    legacy_update = client.put(
+        f"/api/runs/{run_id}/traffic/checklist/legacy-item",
+        json={"status": "done", "note": "must not be accepted"},
+    )
+    assert legacy_update.status_code == 410
 
     server._runs.pop(run_id, None)
 
@@ -161,8 +153,10 @@ def test_traffic_api_requests_cooperative_stop(tmp_path, monkeypatch):
     server._runs.pop(run_id, None)
 
 
-def test_traffic_stage_fake_channels_clean_up_and_complete(tmp_path, monkeypatch):
-    """fake 只验证阶段控制流与清理顺序，不代表真实 DUT 条款通过。"""
+def test_traffic_stage_uses_intelligence_as_primary_and_legacy_failure_is_nonblocking(
+    tmp_path, monkeypatch
+):
+    """主 Bundle 成功后，迁移期兼容输出失败不能阻断阶段完成。"""
     stopped = []
     events = []
 
@@ -218,13 +212,13 @@ def test_traffic_stage_fake_channels_clean_up_and_complete(tmp_path, monkeypatch
     async def confirmed(_workspace, _mode, state):
         state.transition("COLLECTING", "fake_started")
         state.transition("WAITING_FINISH", "fake_finished")
-        for item in state.read()["checklist"]:
-            if item["required"]:
-                state.update_check_item(item["id"], "done")
         return True
 
-    async def analyzed(*_args, **_kwargs):
+    async def intelligence_analyzed(*_args, **_kwargs):
         return True
+
+    async def legacy_analyzed(*_args, **_kwargs):
+        return False
 
     async def no_sleep(_seconds):
         return None
@@ -237,7 +231,12 @@ def test_traffic_stage_fake_channels_clean_up_and_complete(tmp_path, monkeypatch
     monkeypatch.setattr(TrafficCollectStage, "_configure_burp_upstream", staticmethod(configured))
     monkeypatch.setattr(TrafficCollectStage, "_remove_burp_upstream", staticmethod(configured))
     monkeypatch.setattr(TrafficCollectStage, "_wait_for_user_confirmation", staticmethod(confirmed))
-    monkeypatch.setattr(TrafficCollectStage, "_run_pcap_analyzer", staticmethod(analyzed))
+    monkeypatch.setattr(TrafficCollectStage, "_run_pcap_analyzer", staticmethod(legacy_analyzed))
+    monkeypatch.setattr(
+        TrafficCollectStage,
+        "_run_traffic_intelligence",
+        staticmethod(intelligence_analyzed),
+    )
     monkeypatch.setattr("pipelines.etsi.pipeline.asyncio.sleep", no_sleep)
 
     pipeline = FakePipeline()
@@ -251,7 +250,11 @@ def test_traffic_stage_fake_channels_clean_up_and_complete(tmp_path, monkeypatch
         r"C:\temporary-mapping\xray.exe",
     ]
     assert pipeline._state.review_required is False
-    assert any(args[2] == "pcap_analyzer_done" for args, _ in events)
+    event_names = [args[2] for args, _ in events]
+    assert "pcap_analyzer_compat_failed" in event_names
+    assert event_names.index("traffic_intelligence_done") < event_names.index(
+        "pcap_analyzer_compat_failed"
+    )
 
 
 # ═══════════════════════════ 网卡自动检测 ═══════════════════════════

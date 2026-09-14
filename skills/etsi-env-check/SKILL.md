@@ -274,7 +274,7 @@ kill %1 2>/dev/null
 
 ```
 请提供待检测设备的 IP 地址，以便检查网络连通性。
-（例如 192.168.1.100）
+（例如 `192.0.2.10`；仅为 RFC 5737 文档测试地址）
 ```
 
 拿到 IP 后继续 3.2。
@@ -378,10 +378,10 @@ python "${DIR.SKILLS}\etsi-env-check\scripts\tamper_firmware.py" "<固件目录>
   [2.4] sqlmap                 ✅ 1.10 — 引擎加载正常
   [2.5] Wireshark GUI          ✅ ${TOOL.WIRESHARK}
   [2.6] Playwright              ✅ browser_tabs 连通 | 降级/最新版判定见 1.5
-  [2.7] xray 1.9.11 (CE)       ✅ 819 PoCs | hostname_allowed=10.19.199.54 | 代理转发正常
+  [2.7] xray 1.9.11 (CE)       ✅ 819 PoCs | hostname_allowed=<DUT_IP> | 代理转发正常
 
 [3/4] 网络基础连通性
-  [3.1] 目标 IP                ✅ 192.168.1.100 (用户提供)
+  [3.1] 目标 IP                ✅ <DUT_IP> (用户提供)
   [3.2] Ping 可达              ✅ 回复正常 (TTL=64)
   [3.3] 端口探测               ✅ 80/tcp HTTP 200 | 443/tcp refused
 
@@ -402,5 +402,5 @@ python "${DIR.SKILLS}\etsi-env-check\scripts\tamper_firmware.py" "<固件目录>
   - burp: 端口 9876 未监听 — 请启动 Burp Suite MCP Server
   - nmap: 未找到 — 请确认 ${TOOL.NMAP} 存在
   - sqlmap: icmpsh_m 模块缺失 — 非阻塞，核心功能正常
-  - 目标 192.168.1.100: 端口全部 filtered — 检查防火墙或目标是否在线
+  - 目标 <DUT_IP>: 端口全部 filtered — 检查防火墙或目标是否在线
 ```

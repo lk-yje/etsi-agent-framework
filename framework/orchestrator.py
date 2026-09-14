@@ -24,6 +24,7 @@ from framework.tools import ToolRegistry, STANDARD_TOOLS, BuiltinExecutors
 from framework.retry import RetryPolicy, RetryConfig
 from framework.path_resolver import PathResolver
 from framework.ixit_tools import build_ixit_readonly_registry
+from framework.traffic_intelligence.agent_tools import build_traffic_intelligence_registry
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,11 @@ class AgentOrchestrator:
         # 概念性 phase 只需要读取当前 workspace 的 ICS/IXIT；不复用
         # bash/write_file/python_script 这个过宽的标准工具类别。
         build_ixit_readonly_registry(self.tool_registry, self.workspace)
+        build_traffic_intelligence_registry(
+            self.tool_registry,
+            self.workspace,
+            tshark_path=self.path_resolver.get_tool_path("tshark") or "tshark",
+        )
         # MCP 工具在 run_pipeline() 中异步注册（需要 MCP 服务器已连接）
 
     async def _connect_mcp_tools(self) -> int:

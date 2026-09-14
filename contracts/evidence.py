@@ -21,10 +21,22 @@ class EvidenceItem(BaseModel):
     """单条证据"""
     model_config = ConfigDict(populate_by_name=True)
 
-    type: str = Field(description="证据类型: nmap|tshark|burp|curl|sqlmap|xray|playwright|ixit|netstat|other")
+    type: str = Field(description="证据类型: nmap|tshark|traffic_intelligence|burp|curl|sqlmap|xray|playwright|ixit|netstat|other")
     path: Optional[str] = Field(None, description="证据文件路径（工作区内）")
     level: EvidenceLevel = Field(description="证据分级 L1-L5")
     description: str = Field(description="证据描述，必须含 frame 编号/Burp 序号/命令+参数，第三者可直接索引")
+    flow_ids: List[str] = Field(
+        default_factory=list,
+        alias="flowIds",
+        max_length=100,
+        description="Traffic Intelligence 稳定 Flow ID；仅用于结构化证据引用",
+    )
+    frame_numbers: List[int] = Field(
+        default_factory=list,
+        alias="frameNumbers",
+        max_length=500,
+        description="Traffic Intelligence/TShark 明确返回的帧号；不得从描述文本猜测",
+    )
     expected_vs_actual: Optional[str] = Field(
         None, alias="expectedVsActual",
         description="预期 vs 实际对照（FAIL 时必填）"
@@ -35,6 +47,21 @@ class EvidenceItem(BaseModel):
     def description_not_empty(cls, v: str) -> str:
         assert len(v.strip()) >= 10, "证据描述至少 10 字符，包含可索引信息"
         return v
+
+    @field_validator("flow_ids")
+    @classmethod
+    def normalize_flow_ids(cls, values: List[str]) -> List[str]:
+        normalized = [str(value).strip() for value in values]
+        if any(not value for value in normalized):
+            raise ValueError("flowIds 不得包含空值")
+        return sorted(set(normalized))
+
+    @field_validator("frame_numbers")
+    @classmethod
+    def normalize_frame_numbers(cls, values: List[int]) -> List[int]:
+        if any(value < 1 for value in values):
+            raise ValueError("frameNumbers 必须大于 0")
+        return sorted(set(values))
 
 
 class ClauseResult(BaseModel):

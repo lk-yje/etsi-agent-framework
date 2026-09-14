@@ -59,3 +59,23 @@ def test_private_mapping_supplies_firmware_root(tmp_path, monkeypatch):
 
     assert settings.firmware_roots == (firmware_root.resolve(),)
     assert settings.public_summary()["firmware_roots"][0]["exists"] is True
+
+
+def test_traffic_intelligence_settings_are_loaded_without_exposing_worker_path(
+    tmp_path, monkeypatch
+):
+    worker = tmp_path / "private" / "easytshark-analyzer.exe"
+    monkeypatch.setenv("TRAFFIC_ANALYZER_BACKEND", "easytshark_batch")
+    monkeypatch.setenv("TRAFFIC_AI_PAYLOAD_POLICY", "bounded_redacted")
+    monkeypatch.setenv("TRAFFIC_MAX_STREAM_SAMPLE_BYTES", "2048")
+    monkeypatch.setenv("TRAFFIC_EASYTSHARK_TIMEOUT_SECONDS", "900")
+    monkeypatch.setenv("TRAFFIC_EASYTSHARK_PATH", str(worker))
+
+    settings = RuntimeSettings.from_env(tmp_path)
+    summary = settings.public_summary()["traffic_intelligence"]
+
+    assert settings.traffic_analyzer_backend == "easytshark_batch"
+    assert settings.traffic_max_stream_sample_bytes == 2048
+    assert settings.traffic_easytshark_timeout_seconds == 900
+    assert summary["easytshark_configured"] is True
+    assert str(worker) not in str(summary)

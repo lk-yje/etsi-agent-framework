@@ -15,7 +15,8 @@ from framework.path_resolver import PathResolver
 from framework.runtime_config import RuntimeSettings
 
 DEFAULT_TOOL_NAMES = (
-    "nmap", "tshark", "xray", "curl", "ncat", "sqlmap", "binwalk",
+    "nmap", "tshark", "capinfos", "editcap", "easytshark_analyzer",
+    "xray", "curl", "ncat", "sqlmap", "binwalk",
 )
 
 
@@ -88,7 +89,11 @@ def collect_environment_preflight(
 
     tools = {}
     for name in DEFAULT_TOOL_NAMES:
-        resolved = resolver.get_tool_path(name)
+        resolved = (
+            settings.traffic_easytshark_path
+            if name == "easytshark_analyzer" and settings.traffic_easytshark_path
+            else resolver.get_tool_path(name)
+        )
         available = bool(resolved and Path(resolved).is_file())
         tools[name] = {
             "available": available,
@@ -97,6 +102,14 @@ def collect_environment_preflight(
         }
 
     traffic_ready = tools["tshark"]["available"] and tools["xray"]["available"]
+    traffic_intelligence_ready = tools["tshark"]["available"]
+    requested_backend = settings.traffic_analyzer_backend
+    worker_available = tools["easytshark_analyzer"]["available"]
+    selected_backend = (
+        "easytshark_batch"
+        if requested_backend == "easytshark_batch" and worker_available
+        else "direct_tshark"
+    )
     python_ready = sys.version_info >= (3, 11)
     dut = {"ip": dut_ip, "reachability": "not_checked", "note": "未提供 DUT 地址"}
     if dut_ip:
@@ -123,9 +136,19 @@ def collect_environment_preflight(
             "playwright": {"connected": False, "status": "not_checked"},
         },
         "dut": dut,
+        "traffic_intelligence": {
+            "requested_backend": requested_backend,
+            "selected_backend": selected_backend,
+            "ready": traffic_intelligence_ready,
+            "direct_fallback_ready": tools["tshark"]["available"],
+            "easytshark_worker_available": worker_available,
+            "capinfos_available": tools["capinfos"]["available"],
+            "editcap_available": tools["editcap"]["available"],
+        },
         "readiness": {
             "offline_ready": python_ready,
             "traffic_ready": traffic_ready,
+            "traffic_intelligence_ready": traffic_intelligence_ready,
             "full_device_ready": traffic_ready and dut.get("reachability") == "reachable",
         },
     }

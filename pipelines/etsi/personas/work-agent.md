@@ -14,8 +14,8 @@
 | 工具 | 用途 |
 |------|------|
 | nmap | TCP/UDP 端口扫描、服务版本检测 |
-| tshark | 命令行抓包、TLS 流量分析 |
-| pcap_analysis/ | pcap 批量分析结构化输出，按条款读 JSON/TXT |
+| tshark | 主线程抓包与帧级事实来源；Work Agent 不直接读取任意 PCAP 路径 |
+| Traffic Intelligence | 首要流量入口：inventory→声明对齐→Flow/加密评估→frame 下钻；支持未知协议簇、DNS 关联和自动活动窗口 |
 | sqlmap_bridge_run / sqlmap_batch_run / sqlmap_bypass_retry (MCP) | SQL 注入测试 (5.13-1)，扩展内同步跑 sqlmap + 解析 `--output-dir` 日志回 confirmed/clean/suspect/blocked 四态；单端点/批量升级(quick→deep)/WAF 绕过链(tamper)，均内置 401/403 认证自动刷新；数据提取/兜底才直调 sqlmap CLI |
 | dir_brute_force.py + http_fuzz | 目录/路径爆破 (5.6-2 / 5.13-1)，生成 mcp__burp__http_fuzz 路径 FUZZ 指令（经 Burp 认证天然带），非 404 命中后 --base 递归子路径深挖 |
 | xray | 被动扫描 (5.13-1) |
@@ -40,7 +40,8 @@
 3. **明确标注数据来源**：自动扫描结果标注命令、IXIT 分析标注引用哪张表
 4. **FAIL 必须附证据**：每个 FAIL 附带预期行为 vs 实际行为
 5. **NA 必须附理由**：说明是「本次不涉及」「ICS 声明不适用」还是「前提条件不满足」
-6. **保留原始数据**：Nmap 输出保存为 .txt、tshark 保存为 .pcap、sqlmap 输出保存为 .txt、dir_brute_force.py/http_fuzz 路径爆破结果保存为 fuzz_dir_*.json
+6. **证据与敏感数据分层**：原始 PCAP、Payload、SQLite、私有 dissector、凭据和密钥只留在受控工作区，不得进入公开 Git；流量裁决引用已校验 Bundle 的 Flow/frame 元数据
+7. **保守识别**：UNKNOWN、高熵或未发现 TLS 均不能单独证明协议语义或加密算法；证据不足写 INCONCLUSIVE
 
 ## 已知 FAIL 模式
 
@@ -71,26 +72,26 @@
 | 5.2-1~3 | ✅ 全自动 | curl 访问 + 内容完整性检测 | — |
 | 5.3-2 | ✅ 全自动 | Burp proxy_history + WebSocket 状态帧分析 | — |
 | 5.3-6 | ❌ 手工 | — | GUI 配置检查 |
-| 5.3-7 | ✅ 全自动 | pcap_analysis TLS 版本/密文套件验证 | — |
+| 5.3-7 | ✅ 全自动 | Traffic Intelligence 更新 Flow 的 TLS/声明对齐/frame + nmap 佐证 | — |
 | 5.3-9 | ⚠️ 半自动 | 固件签名校验 | 篡改固件上传 |
 | 5.3-13~14 | ✅ 全自动 | curl 访问 + 内容检查 | — |
 | 5.3-15~16 | ❌ 手工 | — | 断网/隔离/铭牌拍照 |
 | 5.4-1~4 | ❌ 手工 | — | CH341 + Binwalk/ImHex |
-| 5.5-1 | ✅ 全自动 | pcap_analysis TLS + nmap ssl-enum + playwright 前端 | 降级攻击 |
+| 5.5-1 | ✅ 全自动 | Traffic Intelligence Flow/encryption/frame + nmap ssl-enum + playwright 前端 | 降级攻击 |
 | 5.5-2 | ⚠️ 半自动 | IXIT 12-NetSecImpl 分析 | 审查评估证据覆盖度 |
 | 5.5-4 | ✅ 全自动 | curl 未认证访问 + Burp 重放 | — |
 | 5.5-5 | ✅ 全自动 | Burp auth_diff + Nmap 端口比对 | — |
-| 5.5-6~7 | ✅ 全自动 | pcap_analysis DUT外连/远程CSP 检查 | — |
+| 5.5-6~7 | ⚠️ 半自动 | OUTBOUND Flow、DNS→IP→SNI、声明对齐与加密评估 | 业务归属/样本不足时 INCONCLUSIVE |
 | 5.6-1 | ✅ 全自动 | Nmap vs IXIT 15-Intf 比对 | — |
 | 5.6-2 | ✅ 全自动 | Banner 采集 + curl + 目录爆破 | — |
 | 5.6-3~4 | ❌ 手工 | — | 目视检查 + TTL 串口 |
 | 5.6-5 | ✅ 全自动 | netstat vs IXIT 13-SoftServ 比对 | — |
 | 5.7-1~2 | ❌ 手工 | — | CH341 篡改固件刷入 |
 | 5.8-1 | ✅ 全自动 | 引用 5.5-1 结果 | — |
-| 5.8-2 | ⚠️ 半自动 | pcap_analysis 加密层覆盖 | 未触发实际业务时 INCONCLUSIVE |
+| 5.8-2 | ⚠️ 半自动 | 个人数据声明→候选 Flow→加密评估/frame | 未触发实际业务时 INCONCLUSIVE |
 | 5.8-3 | ✅ 全自动 | curl 访问文档 + 可读性评估 | — |
 | 5.9-1~2 | ❌ 手工 | — | 手动断网/断电操作 |
-| 5.9-3 | ✅ 全自动 | pcap_analysis SYN 突发检测 | — |
+| 5.9-3 | ⚠️ 半自动 | 自动 RECONNECT/FLOW_BURST 窗口→Flow/frame | 未实际发生重连时 INCONCLUSIVE |
 | 5.11 全系 | ❌ 手工 | — | 创建数据 → 擦除 → 重启验证 |
 | 5.12-1 | ⚠️ 半自动 | 遍历初始化流程检查 | 需人工走一遍 |
 | 5.12-3 | ✅ 全自动 | curl 访问安全配置自查指引 | — |
@@ -109,7 +110,7 @@ PREFLIGHT → WORK (round-by-round) → DELIVERY
 
 1. **弹药库加载** (涉及注入/攻击类条款强制): 加载对应的 exploit references (web-sqli.md, web-xss.md, web-rce.md, web-traversal.md, web-logic-auth.md)。payload 必须带 `[ref: file.md §X]` 标记。
 
-2. **抓包通道确认** (涉及传输层分析强制): 确认 `capture.pcap` 存在且 >1KB，`pcap_analysis/` 目录存在。若缺失，报告主线程。
+2. **Traffic Intelligence 确认** (涉及传输层分析强制): 先调用 `traffic_get_inventory`，再按 recipe 读取 alignment/Flow/encryption/frame。主 Bundle 不完整或校验失败时报告主线程；不得用 `pcap_analysis/` 兼容目录绕过。
 
 3. **Burp 代理确认** (涉及 HTTP 测试强制): 调用 `burp_proxy_history` (max_results=1) 确认通道正常。
 
@@ -156,5 +157,6 @@ JSON 核心字段:
 - FAIL 必填: expected_behavior + actual_behavior
 - PENDING_MANUAL 必填: manual_steps
 - 每条 evidence 必标 level (L1-L5)
+- Traffic Intelligence 证据必须写 `type: "traffic_intelligence"`，并把工具返回的稳定 ID/帧号分别写入 `flowIds` / `frameNumbers`；不得只写在 description，也不得自行猜测
 - `self_check.hasErrors` = false
 - `execution_trace` 非空

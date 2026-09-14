@@ -128,7 +128,7 @@
           "decision": "fallback_alternative_tool",
           "alternative": "先取正确凭据: proxy_latest_auth{host:<DUT>} 拿同帧 Cookie+SessionTag+Authorization (verify.valid=true) → 重试 http_send_request 并显式传 request_headers。若仍 401 → 目标拒绝该凭据，不是丢头。令牌预检/认证对比仍用 auth_diff (auth_levels 强制注入，不依赖外部凭据)。",
           "onRetryFail": null,
-          "history": ["2026-08-05: https://10.19.199.26 auth_diff 令牌预检 → 先用 http_send_request 带 Cookie header 验证 → 返回 401 且 request_headers 中无 Cookie → 曾误判工具丢头 → 改用 auth_diff 后正常", "2026-08-17: 审计 HttpBridge.buildRequest 源码证伪丢头主张，根因归双头配对/令牌过期"]
+          "history": ["2026-08-05: 隔离测试 DUT 的 auth_diff 令牌预检 → 先用 http_send_request 带 Cookie header 验证 → 返回 401 且 request_headers 中无 Cookie → 曾误判工具丢头 → 改用 auth_diff 后正常", "2026-08-17: 审计 HttpBridge.buildRequest 源码证伪丢头主张，根因归双头配对/令牌过期"]
         },
         {
           "signature": "BURP_WS_MESSAGE_TOO_LARGE",
@@ -260,7 +260,7 @@
           "decision": "fallback_alternative_tool",
           "alternative": "browser_evaluate 执行 JS 原生 DOM 操作: document.querySelector('input[placeholder=\"用户名\"]').value='test'; document.querySelector('button').click()。绕过 ref 机制，直接操作 DOM。",
           "onRetryFail": { "decision": "report_to_main", "reason": "前端交互不可自动化 → report_to_main（禁止降级为 Burp/手工替代）" },
-          "history": ["2026-07-27 smoke-test: 海康 NVR 登录页 → Element UI ref 不稳定 → browser_evaluate JS 注入绕过成功"]
+          "history": ["2026-07-27 smoke-test: 隔离测试 DUT 登录页 → Element UI ref 不稳定 → browser_evaluate JS 注入绕过成功"]
         }
       ]
     },
@@ -324,7 +324,7 @@
           "retryParams": "若报 AUTH_DIFF_STRUCTURE → 按返回的 fix 修正 request（请求行/Host/CRLF 缺失）。仍超时 → 目标不可达或 TLS 握手失败，转 onRetryFail。验证: 正常响应 time_ms ~70-100ms，status_code 非 0。",
           "onRetryFail": { "decision": "degrade_semiauto", "reason": "auth_diff 连接持续超时 → 目标可能不可达或 TLS 握手失败。改用 curl 逐端点手工 diff。" },
           "example": "错误: \"GET /path HTTP/1.1\\nHost: DUT\\n\\n\" → 正确: \"GET /path HTTP/1.1\\r\\nHost: DUT\\r\\n\\r\\n\"",
-          "history": ["2026-07-29: DS-7608NXI-I2 测试发现此问题，已写入 auth-diff-workflow.md 已知坑第一条", "2026-08-05: https://10.19.199.26 独立测试 → agent 连续 4 次 timeout 8s 后误判为 'auth_diff 不走 Burp 代理' → 读 workflow 文档后修复 → 首次成功返回 admin=200/none=401 仅 79ms。确认根因就是 \\r\\n。", "2026-08-17: normalizeRequestCrlf 已实现，裸 \\n 自动规范化，不再需要手工替换。"]
+          "history": ["2026-07-29: 隔离测试 DUT 发现此问题，已写入 auth-diff-workflow.md 已知坑第一条", "2026-08-05: 隔离测试 DUT 上 agent 连续 4 次 timeout 8s 后误判为 'auth_diff 不走 Burp 代理' → 读 workflow 文档后修复 → 首次成功返回 admin=200/none=401。确认根因就是 \\r\\n。", "2026-08-17: normalizeRequestCrlf 已实现，裸 \\n 自动规范化，不再需要手工替换。"]
         },
         {
           "signature": "AUTH_DIFF_LEAKS_ORIGINAL_AUTH",
@@ -338,12 +338,12 @@
         {
           "signature": "AUTH_DUAL_HEADER_REQUIRED",
           "patterns": ["AUTH_DIFF_DUAL_HEADER_REQUIRED", "auth_diff admin 和 none 均返回 401", "auth_diff admin and none both return 401", "proxy_history 中请求同时含 Cookie 和 Sessiontag header", "request contains both Cookie and Sessiontag"],
-          "rootCause": "海康 ISAPI 设备使用双认证头: Cookie (WebSession_xxx) + Sessiontag header。2.0.1 起 device_hint:'isapi' 强制双头校验: base 有 SessionTag 且无 level 注入 Cookie → 结构化错误 AUTH_DIFF_DUAL_HEADER_REQUIRED（不再静默 no-op）。",
+          "rootCause": "部分设备接口使用双认证头: Cookie (WebSession_xxx) + Sessiontag header。2.0.1 起 device_hint:'isapi' 强制双头校验: base 有 SessionTag 且无 level 注入 Cookie → 结构化错误 AUTH_DIFF_DUAL_HEADER_REQUIRED（不再静默 no-op）。",
           "decision": "retry_different_params",
           "retryParams": "device_hint:'isapi' + auth_levels 用 headers:[{name:'Cookie', value:'WebSession_xxx={token}'}] 注入 Cookie，Sessiontag 放 base request。token 用 proxy_latest_auth{host} 拿同一帧配对 (verify.valid=true)。header_name 无 header_value → AUTH_DIFF_HEADER_VALUE_MISSING。效果: admin=Cookie+Sessiontag→200, none=Sessiontag→401。",
           "example": "request: \"GET /path HTTP/1.1\\r\\nHost: DUT\\r\\nSessiontag: {tag}\\r\\n\\r\\n\" | auth_levels: [{name:'admin', headers:[{name:'Cookie', value:'WebSession_xxx={token}'}]}, {name:'none'}]",
           "onRetryFail": { "decision": "degrade_semiauto", "reason": "双头认证无法通过 auth_diff 自动化 → 手工 Burp Repeater 逐端点测试。证据级别 L3" },
-          "history": ["2026-07-29 海康 NVR DS-7608NXI-I2/VPro: 定位根因为双头认证 + token配对错误。修复后 21 端点全 PASS (0 FAIL)。", "2026-08-17: headers 多头数组 + device_hint:'isapi' 双头校验 + AUTH_DIFF_HEADER_VALUE_MISSING 结构化报错已实现。"]
+          "history": ["2026-07-29 隔离测试 DUT: 定位根因为双头认证 + token 配对错误。修复后样例端点均按预期裁决。", "2026-08-17: headers 多头数组 + device_hint:'isapi' 双头校验 + AUTH_DIFF_HEADER_VALUE_MISSING 结构化报错已实现。"]
         },
         {
           "signature": "AUTH_TOKEN_PAIR_MISMATCH",

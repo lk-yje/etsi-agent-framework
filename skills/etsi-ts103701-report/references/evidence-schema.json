@@ -190,7 +190,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["nmap", "tshark", "burp", "curl", "sqlmap", "xray", "playwright", "ixit", "netstat", "other"]
+                  "enum": ["nmap", "tshark", "traffic_intelligence", "burp", "curl", "sqlmap", "xray", "playwright", "ixit", "netstat", "other"]
                 },
                 "path": {
                   "type": ["string", "null"],
@@ -204,6 +204,18 @@
                 "description": {
                   "type": "string",
                   "description": "证据内容。pcap 类必须含 frame 编号，Burp 类必须含请求序号，curl 类必须含命令+参数。第三者可直接索引验证。"
+                },
+                "flowIds": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": { "type": "string", "minLength": 1 },
+                  "description": "Traffic Intelligence 工具实际返回的稳定 Flow ID。"
+                },
+                "frameNumbers": {
+                  "type": "array",
+                  "maxItems": 500,
+                  "items": { "type": "integer", "minimum": 1 },
+                  "description": "Traffic Intelligence/TShark 明确返回的帧号，不得从描述文本猜测。"
                 },
                 "expectedVsActual": {
                   "type": "string",

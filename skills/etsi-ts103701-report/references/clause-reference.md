@@ -61,7 +61,7 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 |------|----------|------|------|-------------|---------------|
 | 5.1-1 | 5.1-1-2 | 功能 | ⚠️ | ①Nmap全端口→比对IXIT ②多设备口令对比 ③playwright MCP 初始化跳过密码: browser_navigate 初始化页→browser_snapshot 确认密码设置界面→browser_type 密码留空→browser_click 下一步→browser_snapshot 检查: "密码不能为空"=PASS / 进入下一页=FAIL →browser_type 输入弱密码→browser_click→browser_snapshot: 提示长度/复杂度不足=PASS / 接受=FAIL。⚠️ 需DUT恢复出厂状态；注意部分设备初始激活走桌面工具(如SADP)非Web UI，密码设置不在浏览器内→此时标 INCONCLUSIVE | 口令=设备ID后缀；有隐藏认证接口；允许跳过/弱密码 |
 | 5.1-2 | 5.1-2-2 | 功能 | ⚠️ | 比对实际口令与IXIT生成机制描述（长度/字符集/唯一性） | 口令<8位；与公共信息关联 |
-| 5.1-3 | 5.1-3-2 | 功能 | ✅ | ①读 `pcap_analysis/5.1-3_tls_versions.json` + `pcap_analysis/5.1-3_tls_ciphers.json` (TLS实际协商值) ②nmap ssl-enum-ciphers (DUT支持值) ③Burp proxy_history查登录请求 ④playwright MCP 按 [frontend-encryption-check.md](frontend-encryption-check.md) 流程：browser_navigate→browser_snapshot→browser_fill_form→browser_click→browser_network_requests→browser_network_request取密码字段→browser_evaluate fetch JS grep 定位加密函数→与IXIT比对 ⑤playwright 不可用时 → report_to_main（暂停，禁止降级） | 字符替换代替RSA；MD5/SHA1；加密函数与IXIT不一致 |
+| 5.1-3 | 5.1-3-2 | 功能 | ✅ | ①Traffic Intelligence inventory→声明对齐→登录候选 Flow→加密评估/frame，核对实际 TLS 版本/套件 ②nmap ssl-enum-ciphers 佐证 DUT 支持值 ③Burp 定位登录请求 ④playwright MCP 按 [frontend-encryption-check.md](frontend-encryption-check.md) 定位口令字段和前端实现并与 IXIT 比对。UNKNOWN/高熵不等于已加密；无法把 Flow 归属到登录业务时 INCONCLUSIVE。 | 字符替换代替RSA；MD5/SHA1；加密函数与IXIT不一致 |
 | 5.1-4 | 5.1-4-2 | 功能 | ⚠️ | playwright MCP: browser_navigate 登录页→browser_fill_form 登录→browser_navigate 密码修改页→browser_fill_form oldPassword+newPassword+confirmPassword→若弹窗内Confirm按钮 browser_click 超时(视口外)则降级 browser_evaluate click→browser_network_requests 检查 POST 200→退出→新密码登录成功+旧密码登录失败=PASS。⚠️ 需已知登录凭据 | 无独立改密功能(仅重置)；旧密码仍可登录 |
 | 5.1-5 | 5.1-5-2 | 功能 | ⚠️ | ①Nmap全端口→确认认证接口 ②Burp Intruder 重放登录请求（前端有加密则重放密文 payload，无加密则替换明文密码字段）③观察锁定阈值: 记录第N次尝试后触发锁定+锁定持续时间，比对IXIT声明。⚠️ 仅做 1-2 次失败探针确认机制存在，完整锁定测试标手工 | 锁定次数与IXIT不一致 |
 
@@ -83,7 +83,7 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 | 5.3-4 | 5.3-4-1 | 概念+功能佐证 | ⚠️ | 先判 ICS/IXIT 是否支持自动更新；不支持则 N/A。支持时核对每组件的自动检查/更新机制，用 playwright `browser_navigate→browser_snapshot` 复核更新设置的默认状态。可配置时至少一种自动机制默认启用。不得点击保存或实际升级。 | 自动机制全关闭；组件无自动更新 |
 | 5.3-5 | 5.3-5-1 | 概念+功能佐证 | ⚠️ | 从 `7-UpdMech` 查 DUT 触发、初始化后行为和周期；Traffic 窗口触发一次检查，用 Burp `proxy_history` 索引请求并用 UI snapshot 佐证。单次抓包不能证明“定期”，无周期说明→INCONCLUSIVE。 | 仅人工检查；无周期 |
 | 5.3-6 | 5.3-6-2 | 功能 | ⚠️ | playwright MCP: browser_navigate 登录→系统维护→固件升级页→browser_snapshot 寻找自动更新相关开关(自动检查/自动下载/自动安装/通知新版本等，不同设备开关数量不同)→记录每个开关默认状态(ON/OFF)→browser_click 切换→验证可修改。输出: 各开关默认状态+是否可修改。⚠️ 需已知登录凭据 | 自动更新不可禁用；更新通知不可关闭 |
-| 5.3-7 | 5.3-7-1 | 概念+功能 | ✅* | 用 Burp 索引更新流量→读 `pcap_analysis/5.5-1_server_hello.json` / `5.5-1_proto_hierarchy.txt` → nmap `ssl-enum-ciphers` 佐证支持值→逐项比对 `7-UpdMech` / `11-ComMech` / `12-NetSecImpl` 的 TLS、套件、证书、签名算法。未捕获实际更新载荷→INCONCLUSIVE（`✅*` 仅指链路自动化）。 | 更新载荷明文；弱算法；元数据查询误当更新流量 |
+| 5.3-7 | 5.3-7-1 | 概念+功能 | ✅* | 用 Burp 索引实际更新载荷→按 flow_id 读取 Traffic Intelligence 的声明对齐、TLS 版本/套件、加密评估和代表帧→nmap `ssl-enum-ciphers` 佐证支持值→逐项比对 `7-UpdMech` / `11-ComMech` / `12-NetSecImpl`。未捕获实际更新载荷→INCONCLUSIVE（`✅*` 仅指链路自动化）。 | 更新载荷明文；弱算法；元数据查询误当更新流量 |
 | 5.3-8 | 5.3-8-1 | 概念 | ⚠️ | 读取 `6-SoftComp` / `7-UpdMech`，按组件核对及时部署与执行确认机制。缺少时效、部署路径或确认机制时必须 INCONCLUSIVE；不能只凭“支持升级”判 PASS。 | 无部署/确认能力；宣传文字替代证据 |
 | 5.3-11 | 5.3-11-1 | 概念+功能佐证 | ⚠️ | 先判自动检查更新前提；前提不成立且 ICS=N/A→N/A。前提成立时，从 `7-UpdMech` 和 UI snapshot 核对通知可识别、明显且包含缓解的安全风险；手动检查不是通知。真实推送事件未发生时不伪造。 | 仅版本提示；无通知机制 |
 | 5.3-12 | 5.3-12-1 | 概念+功能佐证 | ⚠️ | 从 `7-UpdMech` 判断更新是否中断基本功能；明确不影响→按 escape clause PASS。会中断时，用 UI snapshot/用户观察索引 DUT 上的中断提示；未经确认不得主动中断业务功能。 | 中断无 DUT 侧通知 |
@@ -109,13 +109,13 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 
 | 条款 | 测试案例 | 类型 | 策略 | 核心测试方法 | 已知 FAIL 模式 |
 |------|----------|------|------|-------------|---------------|
-| 5.5-1 | 5.5-1-2 | 功能 | ✅ | ①读 `pcap_analysis/5.5-1_server_hello.json` (逐帧TLS版本+密文套件→与IXIT比对) + `pcap_analysis/5.5-1_client_hello.json` (ClientHello逐帧L4完整TLS清单→降级攻击/版本不匹配检测) + `pcap_analysis/5.5-1_proto_hierarchy.txt` (协议分层) + `pcap_analysis/5.5-1_conversations.txt` (TCP会话字节统计→找非TLS大流量) + `pcap_analysis/5.5-1_http_check.json` (有无HTTP明文) + `pcap_analysis/5.5-1_http_responses.json` (响应状态码+Content-Length→区分302重定向/200明文内容) ②nmap ssl-enum-ciphers ③Burp proxy_history查通信请求 ④playwright MCP 按 [frontend-encryption-check.md](frontend-encryption-check.md) 流程抓通信负载、定位加密实现→与IXIT比对 ⑤降级攻击测试 ⑥playwright 不可用时 → report_to_main（暂停，禁止降级） | HTTP明文；加密与IXIT不一致；前端弱加密伪装 |
+| 5.5-1 | 5.5-1-2 | 功能 | ✅ | ①Traffic Intelligence inventory→声明对齐→全部相关 Flow→加密评估/frame，核对协议、TLS 实际协商、HTTP 明文和未知协议限制 ②nmap ssl-enum-ciphers 佐证支持值 ③Burp/Playwright 关联具体业务请求与前端实现 ④按需做降级测试。UNKNOWN、高熵不透明和“未见明文”均不得当作已确认加密。 | HTTP明文；加密与IXIT不一致；前端弱加密伪装 |
 | 5.5-2 | 5.5-2-2 | 功能 | ⚠️ | python 提取 IXIT 12-NetSecImpl 各实现的 Review/Evaluation Method + Report → 输出已填/未填清单 → Report 为 URL 则 curl 验可达 → 手工审查评估证据覆盖度 + DUT 版本与 Report 一致性 | 无审查评估证据；自研密码学未经评估 |
 | 5.5-3 | 5.5-3-1 | 概念 | ⚠️ | python 从 IXIT `6-SoftComp` 筛出 Cryptographic Usage 组件→逐组件关联 Update Mechanism/`7-UpdMech`→检查算法/原语升级的兼容性和副作用处理。组件随受控固件更新可作为机制佐证；未关联机制或未说明副作用→INCONCLUSIVE。 | 密码学组件不可更新；未考虑算法升级副作用 |
-| 5.5-4 | 5.5-4-2 | 功能 | ✅ | **①认证控制**: `auth_diff` 全端点 authenticated vs none 对比：none 返回 200+body 一致=FAIL，401/403=PASS。**②加密验证**: playwright MCP 前端加密分析（同5.1-3流程）+ `pcap_analysis/5.5-1_server_hello.json` TLS密码套件/证书与IXIT比对。两项均PASS → 5.5-4-2 PASS。 | 未认证可访问功能页；加密与IXIT不一致 |
+| 5.5-4 | 5.5-4-2 | 功能 | ✅ | **①认证控制**: `auth_diff` 全端点 authenticated vs none 对比。**②加密验证**: Playwright 前端分析 + Traffic Intelligence 声明对齐、目标 Flow 的 TLS/明文评估和代表帧。两部分均有确定证据且一致才可 PASS。 | 未认证可访问功能页；加密与IXIT不一致 |
 | 5.5-5 | 5.5-5-2 | 功能 | ✅ | **A+B+端口**: ①Burp auth_diff 全端点 admin vs none 对比 (证据A, 见 auth-diff-workflow.md) ②前端加密逻辑与IXIT一致性 (证据B, 见 frontend-encryption-check.md) ③nmap 全端口 vs IXIT 15-Intf。三者均PASS → 5.5-5-2 PASS | 未认证可访问功能接口；前端加密与IXIT不一致；未登记端口 |
-| 5.5-6 | 5.5-6-2 | 功能 | ⚠️ | python 先以 IXIT `10-SecParam→11-ComMech` 建立关键安全参数—通信机制映射，再读 `pcap_analysis/5.5-6_*` 五类产物核对机密性与实际加密设置。零外连不等于 PASS；未捕获可归属关键安全参数通信→INCONCLUSIVE。 | 关键安全参数明文/非TLS传输；实测与IXIT矛盾 |
-| 5.5-7 | 5.5-7-2 | 功能 | ⚠️ | python 以 IXIT `10-SecParam→11-ComMech` 筛远程可访问通信，再读 `5.5-7_remote_ips.json`、`all_destinations.json` 和非TLS结果。只有确认不存在远程 CSP 通信才 N/A；不能只因 remote_ips 为空推断。 | 远程关键安全参数明文传输 |
+| 5.5-6 | 5.5-6-2 | 功能 | ⚠️ | 以 IXIT `10-SecParam→11-ComMech` 建立关键安全参数—通信机制映射，再从 Traffic Intelligence 筛 OUTBOUND Flow，读取 alignment/encryption/frame 核对机密性与声明。零外连不等于 PASS；未捕获可归属通信→INCONCLUSIVE。 | 关键安全参数明文/非TLS传输；实测与IXIT矛盾 |
+| 5.5-7 | 5.5-7-2 | 功能 | ⚠️ | 以 IXIT `10-SecParam→11-ComMech` 筛远程可访问通信，用 Traffic Intelligence 的 DNS→IP→SNI 关联、远端 Flow、声明对齐与加密评估核对。远端列表为空不能单独推断 N/A/PASS。 | 远程关键安全参数明文传输 |
 | 5.5-8 | 5.5-8-1 | 概念 | ⚠️ | python 提取 IXIT `14-SecMgmt`，逐类 CSP 核对生成、分发、存储、更新、停用/归档/销毁、过期/泄露处理，并核对 `4-Conf` 安全管理确认。生命周期环节缺失或描述不足必须逐项报告。 | CSP 生命周期管理缺环；未确认执行 |
 
 ## 测试情景 5.6：最小攻击面
@@ -123,7 +123,7 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 | 条款 | 测试案例 | 类型 | 策略 | 核心测试方法 | 已知 FAIL 模式 |
 |------|----------|------|------|-------------|---------------|
 | 5.6-1 | 5.6-1-2 | 功能 | ✅ | Nmap全端口→比对IXIT 15-Intf Enable/Disable | 未登记端口/WiFi接口 |
-| 5.6-2 | 5.6-2-2 | 功能 | ✅ | ①读 `pcap_analysis/5.6-2_broadcast.json` (广播/组播流量→信息泄露渠道) + `pcap_analysis/5.6-2_plaintext_services.json` (非TLS非HTTP的TCP明文Banner→版本/SN泄露) ②ncat Banner采集 ③curl未认证路径 ④Burp目录爆破 | 未认证披露版本/SN/IP |
+| 5.6-2 | 5.6-2-2 | 功能 | ✅ | ①从 Traffic Intelligence 筛广播/组播、明文 Flow 和未知协议簇并下钻代表帧 ②ncat Banner 采集 ③curl 未认证路径 ④Burp 目录爆破。高熵或 UNKNOWN 不能推断“无泄露”。 | 未认证披露版本/SN/IP |
 | 5.6-3 | 5.6-3-2 | 功能 | ❌ | 四项检查：①目视核对暴露物理接口 vs IXIT ②UART/JTAG调试接口保护验证 ③rfkill/iwconfig无线接口检查 ④间歇性/休眠接口在不需要时是否禁用原始功能 | — |
 | 5.6-4 | 5.6-4-2 | 功能 | ❌ | 对暴露接口插线测试+用调试工具测试其他接口 | 调试接口可用 |
 | 5.6-5 | 5.6-5-2 | 功能 | ✅ | netstat查看监听服务→比对IXIT 13-SoftServ | 多余默认服务 |
@@ -144,7 +144,7 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 | 条款 | 测试案例 | 类型 | 策略 | 核心测试方法 | 已知 FAIL 模式 |
 |------|----------|------|------|-------------|---------------|
 | 5.8-1 | 5.8-1-2 | 功能 | ⚠️ | python 以 IXIT `21-PersData→11-ComMech` 建立个人数据—通信机制映射，复用 5.5-1 TLS/明文证据并比对 `12-NetSecImpl`。必须证明捕获流量确实承载对应个人数据；未触发业务样本→INCONCLUSIVE。 | 个人数据明文传输；实测与IXIT矛盾 |
-| 5.8-2 | 5.8-2-2 | 功能 | ⚠️ | 对照 IXIT 21-PersData 逐类核实：①概念评估加密算法安全性（AES/TLS/SHA256 等有无已知可行攻击）②功能验证每类数据实际传输加密：读 `pcap_analysis/5.5-1_proto_hierarchy.txt` + `pcap_analysis/5.5-1_server_hello.json` (确认加密层覆盖对应协议，非流配置元数据)。⚠️ 流通道配置参数（codec/分辨率/码率）不属于敏感个人数据，不可据此判 FAIL。未触发实际业务（邮箱/人脸/POS 操作、RTP 视频流）时标 INCONCLUSIVE | 视频流HTTP明文；敏感数据无加密 |
+| 5.8-2 | 5.8-2-2 | 功能 | ⚠️ | 对照 IXIT 21-PersData 逐类建立个人数据—通信声明映射，再用 Traffic Intelligence alignment 定位候选 Flow 并读取 encryption/frame。必须有额外业务证据证明 Flow 承载对应个人数据；普通码流配置元数据不能替代，未触发实际业务时 INCONCLUSIVE。 | 视频流HTTP明文；敏感数据无加密 |
 | 5.8-3 | 5.8-3-1 | 功能 | ✅ | curl访问传感器文档→可读性评估→目视检查传感器 | — |
 
 ## 测试情景 5.9：系统故障恢复
@@ -153,7 +153,7 @@ UNCERTAIN 不是失败——是有信息缺口。agent 必须写出**具体缺�
 |------|----------|------|------|-------------|---------------|
 | 5.9-1 | 5.9-1-2 | 功能 | ❌ | 手动断网→手动断电→验证恢复 | — |
 | 5.9-2 | 5.9-2-2 | 功能 | ❌ | 断网10分钟→验证本地功能；断电重启→验证配置保留 | 断网数据丢失(未补传) |
-| 5.9-3 | 5.9-3-2 | 功能 | ⚠️ | python 先读 IXIT `11-ComMech` 的 Resilience Measures，再读 `5.9-3_syn_bursts.json`、timestamps、retransmissions 比对有序连接与重连行为。普通稳定流量无 SYN 突发不证明故障后的回退；未发生重连→INCONCLUSIVE。 | 无延迟密集重连；实测与弹性措施矛盾 |
+| 5.9-3 | 5.9-3-2 | 功能 | ⚠️ | 先读 IXIT `11-ComMech` 的 Resilience Measures，再查询 Traffic Intelligence 的 RECONNECT/FLOW_BURST 自动窗口并按 flow_id 下钻 Flow/frame，比对有序连接与重连行为。普通稳定流量不能证明故障后的回退；未发生重连→INCONCLUSIVE。 | 无延迟密集重连；实测与弹性措施矛盾 |
 
 ## 测试情景 5.10：遥测数据
 

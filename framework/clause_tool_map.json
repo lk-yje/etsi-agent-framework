@@ -57,9 +57,10 @@
         "browser_network_requests",
         "browser_network_request",
         "browser_evaluate"
-      ]
+      ],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment", "traffic_get_frame_details"]
     },
-    "method": "Read pcap_analysis TLS version/cipher JSONs; nmap ssl-enum-ciphers; playwright frontend encryption check per frontend-encryption-check.md; compare with IXIT"
+    "method": "从 Traffic Intelligence inventory/alignment 定位登录候选 Flow，读取实际 TLS 版本/密码套件、加密评估和代表帧；结合 nmap ssl-enum-ciphers 与 playwright 前端加密检查比对 IXIT。UNKNOWN/高熵不能直接证明已加密。"
   },
   "5.1-4": {
     "automation": "partial",
@@ -222,12 +223,13 @@
     "tools": {
       "bash": ["nmap"],
       "burp_mcp": ["proxy_history"],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment", "traffic_get_frame_details"]
     },
     "ixit_tables": ["7-UpdMech", "11-ComMech", "12-NetSecImpl"],
-    "evidence_artifacts": ["pcap_analysis/5.5-1_server_hello.json", "pcap_analysis/5.5-1_proto_hierarchy.txt", "nmap ssl-enum-ciphers output", "Burp update request index"],
-    "preconditions": ["Traffic 操作窗实际触发更新检查或更新下载", "pcap_analysis 可用"],
-    "method": "从 Burp history 定位更新相关流量；读取 pcap 的 ServerHello/协议分层，并以 nmap ssl-enum-ciphers 佐证 DUT 支持值；逐项比对 7-UpdMech/11-ComMech/12-NetSecImpl 声明的 TLS 版本、密码套件、证书和签名算法。元数据查询或普通 Web 页面 TLS 不能替代更新载荷证据。",
+    "evidence_artifacts": ["traffic-intelligence/inventory.json", "traffic-intelligence/declaration-alignments.json", "traffic-intelligence/encryption-assessments.jsonl", "nmap ssl-enum-ciphers output", "Burp update request index"],
+    "preconditions": ["Traffic 操作窗实际触发更新检查或更新下载", "Traffic Intelligence Bundle 可校验"],
+    "method": "先读 traffic_get_inventory 和 traffic_compare_declarations，再用 Burp history 将更新请求关联到具体 flow_id，按需读取 Flow、加密评估和代表帧；以 nmap ssl-enum-ciphers 佐证 DUT 支持值，并逐项比对 7-UpdMech/11-ComMech/12-NetSecImpl 的 TLS 版本、密码套件、证书和签名算法。元数据查询或普通 Web 页面 TLS 不能替代更新载荷证据。",
     "oracle": {
       "pass": "已索引的更新流量使用与 IXIT 一致、无已知可行攻击的加密细节。",
       "fail": "更新载荷明文、弱 TLS/密码套件/签名算法，或与 IXIT 声明矛盾。",
@@ -423,9 +425,10 @@
         "browser_network_requests",
         "browser_network_request",
         "browser_evaluate"
-      ]
+      ],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment", "traffic_get_frame_details"]
     },
-    "method": "Read pcap_analysis JSONs (server_hello, client_hello, proto_hierarchy, conversations, http_check, http_responses); nmap ssl-enum-ciphers; playwright MCP frontend encryption check per frontend-encryption-check.md; downgrade attack testing; compare with IXIT"
+    "method": "先读 Traffic Intelligence inventory 和声明对齐结果，按 flow_id 下钻协议依据、TLS 版本/密码套件、明文分类和代表帧；再结合 nmap ssl-enum-ciphers、Playwright 前端加密检查及降级测试与 IXIT 比对。UNKNOWN/高熵不透明不得当作已确认加密。"
   },
   "5.5-2": {
     "automation": "partial",
@@ -474,9 +477,10 @@
         "browser_network_requests",
         "browser_network_request",
         "browser_evaluate"
-      ]
+      ],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_encryption_assessment"]
     },
-    "method": "(1) Auth control: 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取双头(Cookie+SessionTag 或启发式认证头, 同帧避免配对错)→ auth_diff 全端点 authenticated vs none。auth_diff 新参数: headers:[{name,value}] 多头数组(替代单头 header_name/header_value); device_hint:\"isapi\" 开启双头校验(base 有 SessionTag 且 level 无 Cookie → AUTH_DIFF_DUAL_HEADER_REQUIRED); preserve_headers 逃生舱(保留认证头不剥); 输出含 auth_headers_stripped 明示剥头。none returns 200+body match = FAIL, 401/403 = PASS. (2) Encryption verification: playwright MCP frontend encryption analysis (same as 5.1-3 flow) + pcap_analysis server_hello TLS cipher/cert vs IXIT comparison. Both PASS → 5.5-4-2 PASS"
+    "method": "(1) Auth control: 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取同一请求内的完整认证头，再用 auth_diff 比较 authenticated vs none；(2) Encryption verification: Playwright 前端加密分析与 Traffic Intelligence 的声明对齐、TLS 版本/密码套件和明文分类共同核对 IXIT。两侧均有确定证据且一致才可 PASS。"
   },
   "5.5-5": {
     "workflow": "auth-diff-workflow.md",
@@ -498,21 +502,23 @@
         "browser_network_requests",
         "browser_network_request",
         "browser_evaluate"
-      ]
+      ],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow"]
     },
-    "method": "A+B+Port: (1) 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取认证头→ auth_diff 全端点 admin vs none(evidence A, per auth-diff-workflow.md)。auth_diff 新参数: headers 多头数组 + device_hint:\"isapi\" 双头校验 + preserve_headers 逃生舱 + auth_headers_stripped 明示。(2) Frontend encryption logic vs IXIT consistency (evidence B, per frontend-encryption-check.md) (3) nmap full-port vs IXIT 15-Intf. All three PASS → 5.5-5-2 PASS"
+    "method": "A+B+Port: (1) 先 mcp__burp__proxy_latest_auth{host:<DUT>} 取认证头→ auth_diff 全端点 admin vs none；(2) Frontend encryption logic vs IXIT consistency；(3) nmap 全端口并结合 traffic_compare_declarations 的未声明通信/端口差异核对 15-Intf。三部分均有证据且一致才可 PASS。"
   },
   "5.5-6": {
     "automation": "partial",
     "tools": {
       "bash": ["python"],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment", "traffic_list_dns_correlations"]
     },
     "ixit_tables": ["10-SecParam", "11-ComMech", "12-NetSecImpl"],
-    "evidence_artifacts": ["pcap_analysis/5.5-6_dut_outbound.json", "pcap_analysis/5.5-6_non_tls.json", "pcap_analysis/5.5-6_http_outbound.json", "pcap_analysis/5.5-6_tls_appdata.json", "pcap_analysis/5.5-6_sensitive_keywords.json"],
+    "evidence_artifacts": ["traffic-intelligence/inventory.json", "traffic-intelligence/declaration-alignments.json", "traffic-intelligence/encryption-assessments.jsonl", "traffic-intelligence/flows.jsonl"],
     "preconditions": ["Traffic 已捕获与关键安全参数相关的 DUT 通信"],
-    "method": "从 10-SecParam 索引关键安全参数及其 11-ComMech 通信机制，读取 pcap 的 DUT 外连、非 TLS、HTTP 明文、TLS 应用数据和敏感关键字结果；将每条实际通信归属到 IXIT 机制后，再比对机密性与加密细节。零外连不等于没有关键安全参数通信。",
+    "method": "从 10-SecParam 索引关键安全参数及其 11-ComMech 通信机制；先读 Traffic Intelligence inventory/alignment，再按 flow_id 下钻 DUT 外连、协议和加密评估。只有捕获内容能归属到关键安全参数通信时才评价机密性；零外连或高熵不透明均不得直接判 PASS。",
     "oracle": {
       "pass": "每个已捕获的关键安全参数通信均有与 IXIT 一致、满足机密性的加密保护。",
       "fail": "关键安全参数在 HTTP/非 TLS 明文传输，或实际加密设置与 IXIT 矛盾。",
@@ -525,12 +531,13 @@
     "tools": {
       "bash": ["python"],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment", "traffic_list_dns_correlations"]
     },
     "ixit_tables": ["10-SecParam", "11-ComMech", "12-NetSecImpl"],
-    "evidence_artifacts": ["pcap_analysis/5.5-7_remote_ips.json", "pcap_analysis/5.5-7_all_destinations.json", "pcap_analysis/5.5-6_non_tls.json"],
+    "evidence_artifacts": ["traffic-intelligence/endpoints.json", "traffic-intelligence/dns-correlations.json", "traffic-intelligence/declaration-alignments.json", "traffic-intelligence/encryption-assessments.jsonl"],
     "preconditions": ["ICS C(19) 适用，且 Traffic 捕获到远程可访问接口的关键安全参数通信"],
-    "method": "从 10-SecParam 与 11-ComMech 筛选远程可访问的关键安全参数通信，读取 remote_ips/all_destinations 和非 TLS 分析结果；将远程地址、协议和 TLS 细节与 IXIT 声明逐项关联。没有远程 CSP 通信才可 N/A，不能只因 remote_ips 为空就推断。",
+    "method": "从 10-SecParam 与 11-ComMech 筛选远程可访问的关键安全参数通信；用 Traffic Intelligence 的 OUTBOUND Flow、DNS→IP→SNI 关联、声明对齐和加密评估逐项核对远端地址、端口、协议与保护。没有可归属样本时为 INCONCLUSIVE，不能只因远端列表为空推断 N/A。",
     "oracle": {
       "pass": "每个已捕获的远程关键安全参数通信均满足机密性，且与 IXIT 加密声明一致。",
       "fail": "远程关键安全参数通过明文/弱保护传输，或实测与 IXIT 不一致。",
@@ -563,9 +570,10 @@
         "nmap"
       ],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow"]
     },
-    "method": "Nmap full-port scan → compare with IXIT 15-Intf Enable/Disable status"
+    "method": "以 nmap 全端口扫描作为开放端口事实，再结合 Traffic Intelligence 的实际 Flow 和 UNDECLARED_OBSERVED 对齐结果，与 IXIT 15-Intf 的接口状态逐项比对；未在抓包出现不能否定 nmap 已确认的开放端口。"
   },
   "5.6-2": {
     "script": "python scripts/dir_brute_force.py {workspace} --target={dut_ip}",
@@ -578,9 +586,10 @@
       "burp_mcp": [
         "http_fuzz"
       ],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_list_flows", "traffic_get_unknown_cluster", "traffic_get_encryption_assessment"]
     },
-    "method": "Read pcap_analysis JSONs: broadcast.json (broadcast/multicast traffic → info-leak channels), plaintext_services.json (non-TLS non-HTTP TCP plaintext banners → version/SN leak); ncat banner collection; curl unauthenticated paths; Burp directory brute force"
+    "method": "从 Traffic Intelligence inventory 开始，筛选广播/组播、明文 Flow 和未知协议集群并按需下钻；结合 ncat banner、curl 未认证路径和 Burp 目录探测判断是否泄露安全敏感信息。高熵或 UNKNOWN 不能直接推断为无泄露。"
   },
   "5.6-3": {
     "automation": "manual",
@@ -706,12 +715,13 @@
     "tools": {
       "bash": ["python"],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_flow", "traffic_get_encryption_assessment"]
     },
     "ixit_tables": ["21-PersData", "11-ComMech", "12-NetSecImpl"],
-    "evidence_artifacts": ["pcap_analysis/5.5-1_server_hello.json", "pcap_analysis/5.5-1_proto_hierarchy.txt", "pcap_analysis/5.5-1_http_check.json"],
+    "evidence_artifacts": ["traffic-intelligence/declaration-alignments.json", "traffic-intelligence/encryption-assessments.jsonl", "traffic-intelligence/flow-frame-index.jsonl"],
     "preconditions": ["ICS C(21) 适用，Traffic 已触发个人数据在设备与服务间传输"],
-    "method": "从 21-PersData 逐类索引个人数据及引用的 11-ComMech，复用 5.5-1 的 TLS/明文证据并比对 12-NetSecImpl；必须证明所捕获通信确实承载对应个人数据，不能将普通流配置参数或无关 Web 流量当作个人数据证据。",
+    "method": "从 21-PersData 逐类索引个人数据及引用的 11-ComMech；从 Traffic Intelligence alignment 定位候选 Flow，再读取加密评估与代表帧并比对 12-NetSecImpl。必须另有证据证明该 Flow 承载对应个人数据，不能把普通配置流量或仅有 TLS 的无关 Flow 当作个人数据证据。",
     "oracle": {
       "pass": "每类已触发个人数据的通信均有与 IXIT 一致、满足机密性的保护。",
       "fail": "个人数据被明确识别于未保护/不一致的通信中。",
@@ -724,9 +734,10 @@
     "tools": {
       "bash": [],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_compare_declarations", "traffic_list_flows", "traffic_get_encryption_assessment", "traffic_get_frame_details"]
     },
-    "method": "IXIT 21-PersData per-category verification: (1) conceptual assessment of encryption algorithm security (AES/TLS/SHA256 known-feasible-attack check) (2) functional verification per-category data transmission encryption: read pcap_analysis proto_hierarchy.txt + server_hello.json (confirm encryption layer covers corresponding protocol, not stream config metadata). Stream channel config params (codec/resolution/bitrate) are NOT sensitive personal data. No actual business triggered (email/face/POS, RTP video) → INCONCLUSIVE"
+    "method": "IXIT 21-PersData 逐类别验证：(1) 概念评估声明算法；(2) 从 Traffic Intelligence alignment 定位可归属 Flow，核对加密层确实覆盖该数据通道并读取代表帧。必须另有业务证据证明 Flow 承载对应个人数据；普通码流配置参数不是敏感个人数据，未触发业务则 INCONCLUSIVE。"
   },
   "5.8-3": {
     "automation": "full",
@@ -762,12 +773,13 @@
     "tools": {
       "bash": ["python"],
       "burp_mcp": [],
-      "playwright_mcp": []
+      "playwright_mcp": [],
+      "traffic_intelligence": ["traffic_get_inventory", "traffic_list_activity_windows", "traffic_list_flows", "traffic_get_flow", "traffic_get_frame_details"]
     },
     "ixit_tables": ["11-ComMech"],
-    "evidence_artifacts": ["pcap_analysis/5.9-3_syn_bursts.json", "pcap_analysis/5.9-3_syn_timestamps.json", "pcap_analysis/5.9-3_retransmissions.json"],
+    "evidence_artifacts": ["traffic-intelligence/automatic-activity-windows.json", "traffic-intelligence/flows.jsonl", "traffic-intelligence/frames.jsonl"],
     "preconditions": ["Traffic 捕获包含至少一次 DUT 断连/重连或 IXIT 声明的弹性措施行为"],
-    "method": "对 11-ComMech 的每种通信机制读取 Resilience Measures，再读取 SYN 突发、时间间隔和重传分析；检查有序连接和防止大规模同步重连的证据是否与 IXIT 一致。普通稳定通信中的无 SYN 突发不能证明断连后的回退策略。",
+    "method": "对 11-ComMech 的每种通信机制读取 Resilience Measures；先查看自动活动窗口中的 RECONNECT，再按 flow_id 下钻 SYN、重传和时间范围，核对有序连接与防大规模同步重连声明。自动窗口不是人工步骤标签；普通稳定通信中没有 RECONNECT 窗口不能证明断连回退策略。",
     "oracle": {
       "pass": "已观察的连接/重连行为与声明的有序连接和稳定网络措施一致，且无密集同步重连迹象。",
       "fail": "捕获到无延迟密集重连/异常 SYN 突发，或实测与声明的弹性措施矛盾。",

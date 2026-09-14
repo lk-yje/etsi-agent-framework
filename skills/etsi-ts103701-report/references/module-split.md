@@ -13,8 +13,8 @@
 1. 阶段 1：建工作区、解析 ICS/IXIT 为 JSON
 2. 阶段 2：写 `pre-M0-evidence-x0.json` (ICS 验证) → L1 脚本 → **M0 必须审计通过 (audit.result=GOOD) 拿到 `.audit_M0_ACCEPTED` 令牌，方可派发 M1-M5**
 3. **阶段 2.5：M4 IXIT 预处理** — `python scripts/preprocess_m4_ixit.py <ixit.json> <工作区>/m4_preprocessed.json`
-4. 阶段 3.1：启动 tshark + xray → 用户流量采集 → 等用户确认「完成」
-5. 阶段 3.2：停 xray → 停 tshark（拿到完整 pcap）→ 权限预授权 → **并行派发 M1–M5 Work Agent**（M4 额外传 `m4_preprocessed.json`）。
+4. 阶段 3.1：启动 tshark + xray → 用户只确认开始 → 连续完成全部设备操作 → 用户确认完成；不得逐步骤勾选、打标签或补时间点。
+5. 阶段 3.2：停 xray → 停 tshark（拿到完整 pcap）→ 生成并校验 `traffic-intelligence/` 主 Bundle → 最佳努力生成 `pcap_analysis/` 迁移兼容输出 → 权限预授权 → **并行派发 M1–M5 Work Agent**（M4 额外传 `m4_preprocessed.json`）。兼容输出失败不得阻断派发，也不得留下空目录/半成品。
 6. 阶段 3.3：**审计队列 Round 1**（见下方 §审计编排）— Mx Work Agent 写完 `pre-evidence_Mx_*.json` (status=pending_audit) → 主线程跑 L1 → L1 PASS → 调度独立 Audit Agent → 输出 `audit-result_Mx.json` → `result: ACCEPT` 后签发令牌；`result: REJECT` 则重新派发 Work Agent 补齐。
 7. 阶段 3.4：**跨模块审计 Round 2** — 全部 Mx 的 Round 1 `audit.result=ACCEPT` 后，调用独立 Audit Agent 的 Round 2 模式，输入全部 evidence JSON，检查跨模块矛盾 + 继承链一致性，输出 `audit-result_round2.json`。
 8. **阶段 4 硬闸门**：`python scripts/pipeline_phase_gate.py <工作区>` — exit 0 方可进入阶段 4 汇总报告。exit 1 则打印缺失清单，禁止进入阶段 4。
@@ -25,7 +25,7 @@
 |------|---------|---------|---------|
 | **M1 攻击面与端口** | 5.5-2, 5.5-4, 5.5-5, 5.6-1, 5.6-2, 5.6-3, 5.6-4, 5.6-5, 5.6-6, 5.6-7, 5.6-8, 5.6-9 | nmap 结果 + IXIT 15-Intf/13-SoftServ/16-CodeMin/17-PrivlCtrl/18-AccCtrl/19-SecDev | 读文件 + curl 未认证探测 |
 | **M2 认证与口令** | 5.1-1~5.1-5 | IXIT 1-AuthMech + 前端加密采集结果 | curl + Burp MCP + playwright MCP |
-| **M3 通信加密** | 5.5-1, 5.5-3, 5.5-6, 5.5-7, 5.5-8, 5.8-1, 5.8-2 | TLS 扫描结果 + IXIT 11-ComMech/6-SoftComp + M2 前端加密结果 | tshark + Burp MCP |
+| **M3 通信加密** | 5.5-1, 5.5-3, 5.5-6, 5.5-7, 5.5-8, 5.8-1, 5.8-2 | Traffic Intelligence + IXIT 11-ComMech/6-SoftComp + M2 前端加密结果 | Traffic Intelligence 工具 + nmap + Burp MCP |
 | **M4 更新与完整性（功能性执行面）** | 5.3-1, 5.3-2, 5.3-6, 5.3-10, 5.3-13~5.3-16, 5.4-1~5.4-3, 5.7-1, 5.7-2 | IXIT 6/7/8/10 + Burp HTTP/WS history（5.3-2 固件上传流量） | IXIT 分析 + Burp MCP |
 | **M5 输入验证与数据保护** | 5.2-1, 5.2-2, 5.2-3, 5.13-1, 5.8-3, 5.9-1, 5.9-2, 5.9-3, 5.10, 5.11-1~4, 5.12-1~3, 6-1~6-5 | IXIT + 注入探针 | sqlmap_bridge_run/sqlmap_batch_run/sqlmap_bypass_retry/dir_brute_force.py/curl |
 
@@ -269,7 +269,7 @@ JSON 的核心价值：
       "type": "nmap",
       "path": "nmap_tcp.txt",
       "level": "L1",
-      "description": "nmap -sS -sV --top-ports 2000 10.19.199.26: 开放端口 80/443/554/8000/8443",
+      "description": "nmap -sS -sV --top-ports 2000 <DUT_IP>: 开放端口由实测产物决定",
       "expectedVsActual": "预期: 15-Intf 登记全部开放端口 | 实际: 15-Intf 仅登记 SSH 22"
     },
     {
@@ -422,7 +422,7 @@ Mx work-agent 产出 **pre-Mx-evidence-xN.json** (N=派发代数)。审计 `resu
 | 工具 | 抓什么层 | 管哪些条款 | 怎么读数据 |
 |------|---------|-----------|-----------|
 | **Burp/MCP** | 应用层 HTTP（经浏览器代理 8080） | 5.1-5 爆破、5.5-4 未认证、5.5-5 越权、5.6-2 Banner、5.13-1 注入 | MCP 工具直接读 `proxy_history` |
-| **tshark** | 传输层全协议（网卡监听，含非 HTTP） | 5.1.3.2 认证算法、5.3.2.2 固件更新、5.5.1 全协议加密、5.5.6/7 CSP 传输、5.9.3 重连 | 主线程跑 `pcap_analyzer.py` → agent 读 `pcap_analysis/` JSON/TXT |
+| **tshark / Traffic Intelligence** | tshark 提供传输层帧级事实；Bundle 归一化全协议 Flow、TLS、DNS、未知协议簇和声明对齐 | 5.1.3.2 认证算法、5.3.2.2 固件更新、5.5.1 全协议加密、5.5.6/7 CSP 传输、5.9.3 重连 | 主线程生成 `traffic-intelligence/`；agent 用 inventory→alignment→Flow/encryption→frame 的有界工具链查询 |
 | **sqlmap_bridge_run / sqlmap_batch_run / sqlmap_bypass_retry / dir_brute_force.py** | 应用层主动探测 | 5.13-1 输入验证（SQLi 经 MCP 桥同步跑 sqlmap + 日志四态；三工具内置认证刷新+批量升级+WAF 绕过链；路径爆破经 http_fuzz，主流程） | sqlmap_* 读桥返回 JSON（status+四态 triage+injected_parameter+payload）+ sqlmap `--output-dir` 日志 + `sqlmap/block_ledger.jsonl`（bypass 每次尝试入账）；dir_brute_force.py 读 `fuzz_dir_*.json`（hits + next_round） |
 
 **Burp vs tshark 能力边界**：
@@ -440,7 +440,7 @@ Mx work-agent 产出 **pre-Mx-evidence-xN.json** (N=派发代数)。审计 `resu
 3. **IXIT JSON 按需提取**：8MB+ 的 JSON 不整体读入，用 python 脚本按 sheet 名提取所需表格。
 4. **不编造结果**：未测的写"待测试"，FAIL 必须附证据，证据路径指向工作区内文件。
 5. **不破坏性操作**：注入探针用认证会话，但不真删数据/真改配置/真触发锁定。
-6. **抓包通道并行**：阶段 3.1 主线程启动 tshark（后台抓包）+ xray（Python subprocess 被动扫描），Burp 代理由用户准备阶段挂好。双通道收同一条流量，互不干扰。xray 与 tshark 同为必备通道，流量采集结束后均由主线程自动停止并验证产出（capture.pcap + xray_run.log）。
+6. **抓包通道并行**：阶段 3.1 主线程启动 tshark（后台抓包）+ xray（Python subprocess 被动扫描），Burp 代理由用户准备阶段挂好。用户只控制采集开始与完成；窗口内不拆步骤、不加人工标签。结束后主线程自动停止并验证 capture.pcap + xray_run.log，再先生成 Traffic Intelligence 主 Bundle。
 
 ## 派发模板
 
@@ -628,9 +628,9 @@ evidence[] 中每条 FAIL 必须含 expectedVsActual。
 > 路径: `${DIR.SKILLS}\exploit\references\<file>.md`
 > 这是硬约束——不加载弹药库不得发送任何注入 payload。加载后用 `[ref: file.md §X]` 标记 payload 来源。
 
-**2. 抓包通道确认（涉及传输层分析的模块强制）：**
+**2. Traffic Intelligence 确认（涉及传输层分析的模块强制）：**
 {tshark_verification}
-> 若 pcap 不存在或为空（<1KB），不要开始测试——在主线程消息中报告「capture.pcap 不可用，等待主线程启动 tshark」。
+> 先调用 `traffic_get_inventory`。主 Bundle 不完整、散列校验失败或 capture.pcap 不存在/小于 1KB 时，不得用旧 `pcap_analysis/` 降级裁决；报告主线程修复主分析。`pcap_analysis/` 只是迁移兼容输出，不是前置门禁。
 
 **3. Burp 代理确认（涉及 HTTP 测试的模块强制）：**
 {burp_verification}
@@ -754,9 +754,9 @@ JSON 核心字段:
 |------|--------------------------------|------------------------|----------------------|------------------------|---------------------|
 | **M1** 攻击面 | Read `${DIR.SKILLS}\etsi-ts103701-report\references\auth-diff-workflow.md` — 5.5-5 越权测试 (证据 A: API 全端点 auth_diff) | `ls -la {workspace_path}/capture.pcap` 确认文件存在 | `mcp__burp__proxy_history` + `mcp__burp__auth_diff` 确认可用 | 无需 Playwright MCP | 无需 (M1 的 auth_diff 自行做预检) |
 | **M2** 认证 | Read `${DIR.SKILLS}\exploit\references\web-logic-auth.md` — 5.1-5 爆破和认证绕过靠它 | `ls -la {workspace_path}/capture.pcap \|\| echo "CAPTURE_MISSING"` — 5.1.3.2 认证加密分析依赖 pcap | `mcp__burp__proxy_history` 确认有登录流量 | `mcp__playwright__browser_tabs` (action=list) → 若可用按 `frontend-encryption-check.md` 流程执行；不可用 → `report_to_main`（禁止降级） | 无需 |
-| **M3** 通信加密 | 无需加载（M3 为 TLS/加密分析，不发注入 payload） | **强制**: `ls -la {workspace_path}/pcap_analysis/_index.json` → 若缺失，报告主线程「pcap_analysis/ 不可用，请先跑 pcap_analyzer.py」。M3 的 5.5-1/5.5-6/5.5-7/5.8-2 读 `pcap_analysis/` 对应 JSON/TXT，不再自己跑 tshark 命令 | `mcp__burp__proxy_history_search` 确认可搜索 | —（前端加密结果从 M2 evidence 获取，走 §跨 Agent 数据传递范式） | 无需 |
+| **M3** 通信加密 | 无需加载（M3 为 TLS/加密分析，不发注入 payload） | **强制**: 调用 `traffic_get_inventory` 校验主 Bundle → `traffic_compare_declarations` → 按条款筛选 Flow 并下钻 encryption/frame。5.5-7 额外查 DNS correlation；UNKNOWN Flow 可查 cluster，受控 Decode-As 结果最高 PROBABLE。禁止直接从高熵推断加密 | `mcp__burp__proxy_history_search` 确认可搜索 | —（前端加密结果从 M2 evidence 获取，走 §跨 Agent 数据传递范式） | 无需 |
 | **M4** 更新完整性 | 无需加载（M4 为 IXIT 分析+固件升级流量审查） | `ls -la {workspace_path}/m4_preprocessed.json` 确认预处理完成。M4 **不读** 8MB ixit.json，改为读此 ~10KB 预处理文件。若缺失，报告主线程「m4_preprocessed.json 不可用，请先运行 preprocess_m4_ixit.py」 | `mcp__burp__proxy_history` + `mcp__burp__websocket_list` + `mcp__burp__websocket_get_messages` + `mcp__burp__burp_import_project_config` — 5.3-2 TLS 降级: import 设 `custom_tls_protocols=["TLSv1","TLSv1.1"]` → 触发DUT更新 → 观察是否接受弱TLS → 恢复配置。固件上传走 WebSocket：查 `server_to_client` 状态帧（`direction=server_to_client`+`max_results≤20`，禁全量拉取） | `mcp__playwright__browser_tabs` (action=list) → 若可用: 5.3-6-2 browser_navigate→browser_snapshot 读自动更新开关状态；5.3-16-2 browser_navigate→browser_snapshot 提取设备型号。警告: 弹窗按钮 click 超时→降级 browser_evaluate click | 无需 |
-| **M5** 注入验证 | **强制**: Read `${DIR.SKILLS}\exploit\references\web-sqli.md` → Read `web-xss.md` → Read `web-rce.md` → Read `web-traversal.md`。5.13-1 注入探针的 payload 必须来自这些弹药库，带 `[ref: ...]` 标记 | `ls -la {workspace_path}/pcap_analysis/5.9-3_syn_bursts.json` 确认存在（5.9-3 重连分析读 `pcap_analysis/5.9-3_*.json`） | `mcp__burp__http_fuzz` + `mcp__burp__sqlmap_bridge_run` 确认可用 | `mcp__playwright__browser_tabs` (action=list) → 若可用: 5.12-1-2 browser_navigate 登录→browser_click Configuration Wizard→逐页 browser_snapshot 提取决策点。警告: 弹窗按钮 click 超时→降级 browser_evaluate click | **强制 — 调用 http_fuzz/dir_brute_force.py 前执行**（sqlmap_bridge_run/sqlmap_batch_run/sqlmap_bypass_retry 内置 `auth_refresh=true` 自动刷新，无需预检）: `mcp__burp__proxy_latest_auth{host:<DUT_IP>}` 一步拿最新认证头（扩展内真频率分析选帧 + 同帧提取 Cookie/SessionTag/Authorization + live GET 验活，verify.valid=true 即有效；不再用 session_ensure.py 两步法）。status:ok + verify.valid:true → 取 tokens.cookie/session_tag 注入 sqlmap_targets 的 auth_headers 与后续请求；expired/no_auth/no_traffic → 提示用户经 Burp 代理刷新 DUT 页面后重调。禁止跳过验活直接跑这两个工具。 |
+| **M5** 注入验证 | **强制**: Read `${DIR.SKILLS}\exploit\references\web-sqli.md` → Read `web-xss.md` → Read `web-rce.md` → Read `web-traversal.md`。5.13-1 注入探针的 payload 必须来自这些弹药库，带 `[ref: ...]` 标记 | 5.9-3 先查 `traffic_list_activity_windows(kind=RECONNECT/FLOW_BURST)`，再按 flow_id 下钻 Flow/frame 并与 IXIT Resilience Measures 比对；未发生重连必须 INCONCLUSIVE | `mcp__burp__http_fuzz` + `mcp__burp__sqlmap_bridge_run` 确认可用 | `mcp__playwright__browser_tabs` (action=list) → 若可用: 5.12-1-2 browser_navigate 登录→browser_click Configuration Wizard→逐页 browser_snapshot 提取决策点。警告: 弹窗按钮 click 超时→降级 browser_evaluate click | **强制 — 调用 http_fuzz/dir_brute_force.py 前执行**（sqlmap_bridge_run/sqlmap_batch_run/sqlmap_bypass_retry 内置 `auth_refresh=true` 自动刷新，无需预检）: `mcp__burp__proxy_latest_auth{host:<DUT_IP>}` 一步拿最新认证头（扩展内真频率分析选帧 + 同帧提取 Cookie/SessionTag/Authorization + live GET 验活，verify.valid=true 即有效；不再用 session_ensure.py 两步法）。status:ok + verify.valid:true → 取 tokens.cookie/session_tag 注入 sqlmap_targets 的 auth_headers 与后续请求；expired/no_auth/no_traffic → 提示用户经 Burp 代理刷新 DUT 页面后重调。禁止跳过验活直接跑这两个工具。 |
 
 ### 主线程派发前覆盖检查
 
@@ -799,11 +799,11 @@ M1-M5 完成后，evidence 由独立 Audit Agent 审查 (见上方 §审计编�
 
 | 禁止 | 必须 |
 |---------|---------|
-| pcap 只跑 `io,phs` 聚合统计就写报告 | 主线程必须先跑 `pcap_analyzer.py` → 生成 `pcap_analysis/` → agent 逐条款读对应的 JSON/TXT |
+| pcap 只跑 `io,phs` 聚合统计或直接读旧 `pcap_analysis/` 就写报告 | 主线程必须生成并校验 Traffic Intelligence Bundle；agent 按 inventory→alignment→Flow/encryption→frame 下钻 |
 | 报告中没有 frame 编号引用 | 每条 FAIL/PASS 至少引用 1 个 pcap frame 编号 |
-| TLS 握手分析只依赖 nmap | 读 `pcap_analysis/5.5-1_server_hello.json` 取实际协商的 cipher suite + TLS 版本（nmap 只能扫支持的，不能证实际用的） |
-| 不分析 DUT 出站连接 | 读 `pcap_analysis/5.5-6_dut_outbound.json` + `pcap_analysis/5.5-7_all_destinations.json` 核验 DUT 是否主动外连远程 CSP |
-| 5.9-3 不做 SYN 间隔分析 | 读 `pcap_analysis/5.9-3_syn_bursts.json` 的 `verdict_hint` + `bursts[]` |
+| TLS 握手分析只依赖 nmap | 读取目标 Flow 的实际 TLS 协商、加密评估和代表帧（nmap 只能扫支持值，不能证明实际使用） |
+| 不分析 DUT 出站连接 | 筛 OUTBOUND Flow，并用 DNS→IP→SNI、声明对齐和加密评估核对远程 CSP |
+| 5.9-3 不分析自动活动窗口和帧 | 查询 RECONNECT/FLOW_BURST 窗口并下钻 Flow/frame；未发生重连时 INCONCLUSIVE |
 
 ### 反模式 3：证据没有 frame 级引用
 

@@ -37,7 +37,7 @@
     {"path": "skills/etsi-ts103701-report/references/harness-config.json", "status": "planned_binding", "consumer": "Harness/L1-L2 约束", "scope": "未接入前不得宣称强制执行"},
     {"path": "skills/etsi-ts103701-report/references/m6-agent-prompt.md", "status": "retired", "consumer": "无运行时消费者", "scope": "由 etsi-report-auditor + audit-agent.md 替代"},
     {"path": "skills/etsi-ts103701-report/references/module-split.md", "status": "orchestration_contract", "consumer": "pipelines.etsi.modules、Phase 配置", "scope": "模块和并行边界来源"},
-    {"path": "skills/etsi-ts103701-report/references/pcap-analyzer-reference.md", "status": "runtime_phase", "consumer": "M3 phase_A/B、M4 phase_A、M5 phase_C", "scope": "pcap_analysis 到条款裁决映射"},
+    {"path": "skills/etsi-ts103701-report/references/pcap-analyzer-reference.md", "status": "runtime_phase", "consumer": "M3 phase_A/B、M4 phase_A、M5 phase_C", "scope": "Traffic Intelligence 查询、证据边界与 pcap_analysis 迁移兼容说明"},
     {"path": "skills/etsi-ts103701-report/references/pending-issues.md", "status": "orchestration_contract", "consumer": "实施计划与缺口台账", "scope": "不作为裁决输入"},
     {"path": "skills/etsi-ts103701-report/references/qbfw_parsed.json", "status": "regression_fixture", "consumer": "解析/上下文回归测试", "scope": "禁止作为 DUT 证据"},
     {"path": "skills/etsi-ts103701-report/references/report-template.md", "status": "orchestration_contract", "consumer": "ReportGenerationStage", "scope": "报告结构与复现要求"},

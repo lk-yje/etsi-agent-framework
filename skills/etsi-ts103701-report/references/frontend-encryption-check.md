@@ -31,7 +31,7 @@ playwright MCP 的工具名统一为 `mcp__playwright__browser_<action>` 格式�
 - `browser_snapshot` 返回的 `ref=fXeY` 值**每次 snapshot 会变**。填表或点击前必须先 snapshot 获取当前 ref，不要用之前保存的值。
 - `browser_take_screenshot` 返回的图像当前模型无多模态读取能力，**判定靠 `browser_snapshot`（DOM 文本）+ `browser_network_request`（请求/响应文本），不靠截图内容**。截图仅作存档证据。
 - `browser_fill_form` 一次填多个元素，比多次 `browser_type` 快且可靠，优先用。但 ref 必须在同一个 snapshot 中。
-- 海康/ISAPI 类设备登录是**两步 challenge-response**：先 GET `.../sessionLogin/capabilities` 取 `salt`/`challenge`/`iterations`/`isIrreversible`，再 POST `.../sessionLogin` 提交摘要。要看两步才能判断算法。
+- 部分设备的登录是**两步 challenge-response**：先 GET 登录能力端点取 `salt`/`challenge`/`iterations`/`isIrreversible`，再 POST 登录端点提交摘要。要看两步才能判断算法。
 
 ## 8 步标准流程（playwright MCP）
 
@@ -89,9 +89,9 @@ playwright MCP 的工具名统一为 `mcp__playwright__browser_<action>` 格式�
 
 > **重要**：前端加密判定不能只看前端。前端"加密"可能被绕过（直接构造请求）。最终裁决需结合 **Burp MCP 重放**（后端是否接受绕过前端加密的明文/弱构造）+ **tshark 传输层**（是否 TLS）。三端一致才算 PASS。
 
-## 海康 portal 实测案例（V5.1.69_R0102 build 251229）
+## 两步 challenge-response 的匿名化示例
 
-目标 `http://10.19.199.54/doc/index.html#/portal/login`，工具链 10 步全程跑通。
+目标 `https://dut.example.test/portal/login`，工具链 10 步全程跑通。
 
 **登录链路（两步）**：
 1. GET `/ISAPI/Security/sessionLogin/capabilities?username=test&random=10780173` → 返回 XML：

@@ -457,6 +457,7 @@ def _derive_audit_queue_state(
 
 _TOOL_GROUPS = (
     ("Burp MCP", ("burp",)),
+    ("Traffic Intelligence", ("traffic_intelligence", "traffic_get_", "traffic_list_", "traffic_try_")),
     ("tshark / pcap", ("tshark", "pcap", "wireshark")),
     ("Playwright", ("playwright", "browser_")),
     ("sqlmap", ("sqlmap", "sqli")),
@@ -1245,9 +1246,6 @@ def traffic_confirm(run_id: str, req: TrafficConfirm) -> dict:
     if req.action == "done":
         if status != "WAITING_FINISH":
             raise HTTPException(status_code=409, detail=f"Traffic 当前为 {status}，请先开始操作")
-        missing = [x["label"] for x in traffic.get("checklist", []) if x.get("required") and x.get("status") == "pending"]
-        if missing:
-            raise HTTPException(status_code=409, detail="仍有必做操作未记录：" + "；".join(missing))
     if req.action == "skip":
         if status not in {"WAITING_START", "WAITING_FINISH"}:
             raise HTTPException(status_code=409, detail=f"Traffic 当前为 {status}，不能跳过")
@@ -1267,21 +1265,8 @@ def traffic_confirm(run_id: str, req: TrafficConfirm) -> dict:
 
 @app.put("/api/runs/{run_id}/traffic/checklist/{item_id}")
 def update_traffic_checklist(run_id: str, item_id: str, req: TrafficChecklistUpdate) -> dict:
-    """持久化用户对阶段 3.1 操作项的完成/N-A/证据备注。"""
-    meta = _runs.get(run_id)
-    if meta is None:
-        raise HTTPException(status_code=404, detail=f"run 不存在: {run_id}")
-    ws = Path(meta["workspace"])
-    traffic = TrafficStateStore(ws).read()
-    if traffic is None or traffic.get("status") not in {"COLLECTING", "WAITING_FINISH"}:
-        raise HTTPException(status_code=409, detail="仅在正式操作窗口内可以更新 checklist")
-    try:
-        updated = TrafficStateStore(ws).update_check_item(item_id, req.status, note=req.note, evidence=req.evidence)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"run_id": run_id, "item_id": item_id, "traffic": updated}
+    """旧逐项标记接口已停用；流量阶段只保留开始和完成两个动作。"""
+    raise HTTPException(status_code=410, detail="连续操作模式不再接受逐项 checklist 标签")
 
 
 @app.get("/api/runs/{run_id}/events")
@@ -1324,6 +1309,139 @@ def get_report(run_id: str) -> dict:
     ]
     report_data["workspace"] = str(ws)
     return report_data
+
+
+def _traffic_bundle_store(run_id: str):
+    meta = _runs.get(run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"run 不存在: {run_id}")
+    ws = Path(meta["workspace"])
+    if not (ws / "traffic-intelligence" / "manifest.json").is_file():
+        raise HTTPException(status_code=404, detail="Traffic Intelligence Bundle 尚未生成")
+    try:
+        from framework.traffic_intelligence.bundle_store import (
+            TrafficIntelligenceBundleStore,
+        )
+
+        store = TrafficIntelligenceBundleStore(ws)
+        store.load_manifest()
+        return store
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Traffic Intelligence Bundle 校验失败: {type(exc).__name__}: {exc}",
+        ) from exc
+
+
+@app.get("/api/runs/{run_id}/traffic-intelligence")
+def get_traffic_intelligence(run_id: str) -> dict:
+    """返回不含 Payload 的流量智能概览和声明差异。"""
+    meta = _runs.get(run_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"run 不存在: {run_id}")
+    from framework.reporting import build_traffic_intelligence_report
+
+    result = build_traffic_intelligence_report(Path(meta["workspace"]))
+    if result.get("status") == "not_available":
+        raise HTTPException(status_code=404, detail="Traffic Intelligence Bundle 尚未生成")
+    if result.get("status") == "invalid":
+        raise HTTPException(status_code=409, detail=result.get("reason"))
+    return result
+
+
+@app.get("/api/runs/{run_id}/traffic-intelligence/flows")
+def list_traffic_intelligence_flows(
+    run_id: str,
+    offset: int = 0,
+    limit: int = 50,
+    direction: str = "",
+    transport: str = "",
+    protocol: str = "",
+    encryption: str = "",
+    unknown_cluster_id: str = "",
+) -> dict:
+    """分页浏览结构化 Flow；查询不接受路径，也不返回 Payload。"""
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset 不能小于 0")
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit 必须位于 1..100")
+    store = _traffic_bundle_store(run_id)
+    normalized_direction = direction.strip().upper()
+    normalized_transport = transport.strip().upper()
+    normalized_protocol = protocol.strip().casefold()
+    normalized_encryption = encryption.strip().upper()
+    selected: list[dict] = []
+    matched = 0
+    has_more = False
+    for flow in store.iter_jsonl("flows.jsonl"):
+        if normalized_direction and str(flow.get("direction_relative_to_dut", "")).upper() != normalized_direction:
+            continue
+        if normalized_transport and str(flow.get("transport", "")).upper() != normalized_transport:
+            continue
+        if unknown_cluster_id and flow.get("unknown_cluster_id") != unknown_cluster_id:
+            continue
+        if normalized_protocol and not any(
+            str(candidate.get("name", "")).casefold() == normalized_protocol
+            for candidate in flow.get("protocol_candidates", [])
+            if isinstance(candidate, dict)
+        ):
+            continue
+        assessment = flow.get("encryption") or {}
+        if normalized_encryption and str(assessment.get("classification", "")).upper() != normalized_encryption:
+            continue
+        if matched < offset:
+            matched += 1
+            continue
+        if len(selected) >= limit:
+            has_more = True
+            break
+        selected.append(flow)
+        matched += 1
+    return {
+        "offset": offset,
+        "limit": limit,
+        "returned": len(selected),
+        "has_more": has_more,
+        "payload_included": False,
+        "flows": selected,
+    }
+
+
+@app.get("/api/runs/{run_id}/traffic-intelligence/flows/{flow_id}")
+def get_traffic_intelligence_flow(run_id: str, flow_id: str) -> dict:
+    store = _traffic_bundle_store(run_id)
+    selected = next(
+        (flow for flow in store.iter_jsonl("flows.jsonl") if flow.get("flow_id") == flow_id),
+        None,
+    )
+    if selected is None:
+        raise HTTPException(status_code=404, detail=f"Flow 不存在: {flow_id}")
+    alignments = store.read_json("declaration-alignments.json", max_bytes=16 * 1024 * 1024)
+    return {
+        "flow": selected,
+        "alignments": [
+            item for item in alignments
+            if flow_id in item.get("flow_ids", [])
+        ],
+        "payload_included": False,
+    }
+
+
+@app.get("/api/runs/{run_id}/traffic-intelligence/frames/{frame_number}")
+def get_traffic_intelligence_frame(run_id: str, frame_number: int) -> dict:
+    if frame_number < 1:
+        raise HTTPException(status_code=400, detail="frame_number 必须大于 0")
+    store = _traffic_bundle_store(run_id)
+    selected = next(
+        (
+            frame for frame in store.iter_jsonl("frames.jsonl")
+            if frame.get("frame_number") == frame_number
+        ),
+        None,
+    )
+    if selected is None:
+        raise HTTPException(status_code=404, detail=f"Frame 不存在: {frame_number}")
+    return {"frame": selected, "payload_included": False}
 
 
 @app.get("/api/runs/{run_id}/evidence-download")

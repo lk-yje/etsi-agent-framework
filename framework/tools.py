@@ -33,6 +33,7 @@ class ToolParam:
     description: str = ""
     required: bool = True
     enum: Optional[List[str]] = None
+    items_type: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,8 @@ class ToolDef:
             prop_def: dict = {"type": p.type, "description": p.description}
             if p.enum:
                 prop_def["enum"] = p.enum
+            if p.type == "array" and p.items_type:
+                prop_def["items"] = {"type": p.items_type}
             props[p.name] = prop_def
             if p.required:
                 required.append(p.name)

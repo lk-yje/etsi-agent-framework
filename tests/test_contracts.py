@@ -110,6 +110,21 @@ class TestEvidenceManifestValidation:
 
         assert m.has_l4_l5_evidence()
 
+    def test_traffic_evidence_accepts_and_normalizes_structured_refs(self):
+        evidence = EvidenceItem(
+            type="traffic_intelligence",
+            level=EvidenceLevel.L1,
+            description="Traffic Intelligence Flow 和代表帧已完成结构化引用",
+            flowIds=["flow-b", "flow-a", "flow-a"],
+            frameNumbers=[8, 7, 8],
+        )
+
+        assert evidence.flow_ids == ["flow-a", "flow-b"]
+        assert evidence.frame_numbers == [7, 8]
+        dumped = evidence.model_dump(mode="json", by_alias=True)
+        assert dumped["flowIds"] == ["flow-a", "flow-b"]
+        assert dumped["frameNumbers"] == [7, 8]
+
     def test_fail_without_expected_behavior_detected(self):
         """FAIL 缺少 expectedBehavior → 被检测"""
         m = EvidenceManifest(

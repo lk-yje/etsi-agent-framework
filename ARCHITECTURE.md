@@ -1,9 +1,14 @@
 # ETSI Pipeline Agent 框架 — 架构设计文档
 
-> **状态**: 设计阶段 | **作者**: 架构设计 | **日期**: 2026-08-06
+> **状态**: 历史设计参考（并非当前实现清单） | **作者**: 架构设计 | **原始日期**: 2026-08-06 | **状态标注更新**: 2026-09-12
 >
 > 本文档描述从"纯 Prompt Engineering"向"工程化 Agent 框架"迁移的完整架构设计。
 > 设计目标：在保留 AI 审计智能性的前提下，通过物理隔离解决 Goodhart's Law 污染问题。
+>
+> **阅读边界：** 当前可执行事实以 [README](README.md)、
+> [Traffic Intelligence / EasyTshark 落地方案](docs/TRAFFIC_INTELLIGENCE_EASYTSHARK_INTEGRATION_PLAN.md)
+> 和 [NEXT_STEPS_实施计划](NEXT_STEPS_实施计划.md) 顶部状态为准。本文保留 ADR、隔离目标和
+> 当时的设计推演；其中的目录树、阶段数和“当前问题”措辞可能已被后续实现取代。
 
 ---
 
@@ -1485,7 +1490,7 @@ class AgentRegistry:
 ## 11. 项目结构
 
 ```
-d:/HIKvision/
+<repository-root>/
 ├── CLAUDE.md                          # 红队渗透 persona (保持，手工渗透用)
 ├── skills/                            # 现有 skill (不动，供 Claude Code 直接对话)
 │   ├── etsi-ts103701-report/          # 工作 skill
@@ -1532,7 +1537,7 @@ d:/HIKvision/
 │   ├── scripts/                       # 确定性脚本 (从 skills 迁移)
 │   │   ├── validate_evidence.py       # L1 证据结构校验
 │   │   ├── pipeline_phase_gate.py     # 阶段闸门
-│   │   ├── pcap_analyzer.py           # pcap 批量分析
+│   │   ├── pcap_analyzer.py           # 旧 pcap 条款输出兼容层（非主分析入口）
 │   │   ├── preprocess_m4_ixit.py      # M4 IXIT 预处理
 │   │   └── evidence_to_md.py          # Evidence JSON → Markdown
 │   │
@@ -1600,7 +1605,7 @@ d:/HIKvision/
 │  total_agents: 8 (M0+M1..M5+audit+cross)                  │
 │  total_tokens: 485000                                     │
 │  total_api_cost: $3.82                                    │
-│  final_report: reports/认证检测报告_DS-2CD2XXX_20260806.md│
+│  final_report: reports/认证检测报告_<DUT>_<DATE>.md       │
 │  verdict: PASS (32/35 clauses, 3 PENDING_MANUAL)         │
 └─────────────────────────────────────────────────────────┘
 ```

@@ -17,6 +17,11 @@ class RuntimeSettings:
     path_mapping_path: Path | None
     firmware_roots: tuple[Path, ...] = ()
     input_roots: tuple[Path, ...] = ()
+    traffic_analyzer_backend: str = "auto"
+    traffic_payload_policy: str = "metadata_only"
+    traffic_max_stream_sample_bytes: int = 4096
+    traffic_easytshark_timeout_seconds: int = 1800
+    traffic_easytshark_path: str | None = None
 
     @classmethod
     def from_env(cls, project_root: Path) -> RuntimeSettings:
@@ -57,12 +62,20 @@ class RuntimeSettings:
             except (OSError, ValueError, json.JSONDecodeError):
                 pass
         unique_input_roots = tuple(dict.fromkeys(input_roots))
+        from framework.traffic_intelligence.pipeline import TrafficIntelligenceSettings
+
+        traffic = TrafficIntelligenceSettings.from_environment()
         return cls(
             project_root=project_root,
             auto_test_root=auto_test_root,
             path_mapping_path=path_mapping,
             firmware_roots=unique_roots,
             input_roots=unique_input_roots,
+            traffic_analyzer_backend=traffic.backend,
+            traffic_payload_policy=traffic.payload_policy,
+            traffic_max_stream_sample_bytes=traffic.max_stream_sample_bytes,
+            traffic_easytshark_timeout_seconds=traffic.timeout_seconds,
+            traffic_easytshark_path=traffic.easytshark_path,
         )
 
     def resolve_workspace(self, value: str | Path, *, create: bool = False) -> Path:
@@ -107,4 +120,10 @@ class RuntimeSettings:
                 {"path": str(root), "exists": root.is_dir()}
                 for root in self.input_roots
             ],
+            "traffic_intelligence": {
+                "requested_backend": self.traffic_analyzer_backend,
+                "payload_policy": self.traffic_payload_policy,
+                "max_stream_sample_bytes": self.traffic_max_stream_sample_bytes,
+                "easytshark_configured": bool(self.traffic_easytshark_path),
+            },
         }

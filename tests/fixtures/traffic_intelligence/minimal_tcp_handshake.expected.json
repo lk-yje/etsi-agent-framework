@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "capture_sha256": "7aefd4ed978b0dd8321863484d3fc0e6b4e931e7e3402b72c5c9ab648b3617b2",
+  "linktype": 1,
+  "packets": [
+    {
+      "frame_number": 1,
+      "timestamp_epoch": 1000.0,
+      "src_ip": "192.0.2.10",
+      "src_port": 51000,
+      "dst_ip": "198.51.100.8",
+      "dst_port": 9000,
+      "tcp_flags": 2
+    },
+    {
+      "frame_number": 2,
+      "timestamp_epoch": 1000.25,
+      "src_ip": "198.51.100.8",
+      "src_port": 9000,
+      "dst_ip": "192.0.2.10",
+      "dst_port": 51000,
+      "tcp_flags": 18
+    }
+  ],
+  "flow": {
+    "transport": "TCP",
+    "origin": "192.0.2.10:51000",
+    "responder": "198.51.100.8:9000",
+    "frame_count": 2,
+    "payload_bytes": 0
+  }
+}

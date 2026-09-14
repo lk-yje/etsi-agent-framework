@@ -40,14 +40,17 @@ ${DIR.WORKSPACE}\<时间戳>\
 ├── baseline_tcp.txt       # nmap 基线扫描
 ├── dut_tcp.txt            # nmap DUT 扫描
 ├── capture.pcap           # tshark 抓包（M2/M3/M4/M5 共享）
-├── pcap_analysis\          # pcap_analyzer.py 批量查询输出（主线程停抓包后跑）
-│   ├── _index.json        #   条款→文件映射
-│   ├── _summary.txt       #   全局摘要（含 verdict_hint）
-│   ├── 5.1-3_*.json       #   TLS 版本+密文套件统计
-│   ├── 5.5-1_*.json+txt   #   ServerHello逐帧+协议分层+HTTP检查
-│   ├── 5.5-6_*.json       #   DUT外连目标+非TLS+HTTP明文+TLS载荷
-│   ├── 5.5-7_*.json       #   远程CSP IP去重
-│   └── 5.9-3_*.json       #   SYN突发检测+间隔统计
+├── traffic-intelligence\  # 首要流量分析 Bundle（manifest 完整性校验）
+│   ├── manifest.json
+│   ├── inventory.json
+│   ├── flows.jsonl
+│   ├── frames.jsonl       # metadata-only，不含 Payload
+│   ├── encryption-assessments.jsonl
+│   ├── declaration-alignments.json
+│   ├── unknown-protocol-clusters.json
+│   ├── automatic-activity-windows.json
+│   └── dns-correlations.json
+├── pcap_analysis\         # 迁移期兼容输出；失败时不保留空目录/半成品
 ├── xray_run.log           # xray 被动扫描运行日志（必备，端点覆盖率 + 探针数统计）
 ├── xray_report.html       # xray 漏洞报告（有漏洞时产出）
 └── screenshots\           # 证据截图

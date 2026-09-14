@@ -52,6 +52,32 @@ class ToolExecutionPolicy:
 
     def validate(self, tool_name: str, params: dict[str, Any]) -> PolicyDecision:
         normalized = dict(params)
+        if tool_name.startswith("traffic_"):
+            if self.workspace is None:
+                return self._deny(
+                    "workspace_required",
+                    "Traffic Intelligence 工具必须绑定当前 workspace",
+                    normalized,
+                )
+            if any("path" in str(key).casefold() for key in normalized):
+                return self._deny(
+                    "path_parameter_blocked",
+                    "Traffic Intelligence 工具不接受调用方文件路径",
+                    normalized,
+                )
+            # 这些工具只读取本地 Bundle，或对当前 PCAP 做 allowlist 内的离线复分析；
+            # endpoint IP 是过滤值，不是网络目标。
+            return PolicyDecision(
+                True,
+                (
+                    "allowed_local_traffic_analysis"
+                    if tool_name == "traffic_try_decode_as"
+                    else "allowed_local_traffic_query"
+                ),
+                "调用绑定当前 workspace 的本地流量索引或受控离线分析",
+                normalized,
+                tuple(self.approved_targets),
+            )
         if self.workspace and tool_name in {"read_file", "write_file"}:
             path = params.get("path")
             if not isinstance(path, str) or not path.strip():

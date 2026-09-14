@@ -1,4 +1,4 @@
-"""ETSI 阶段 3.1 流量采集 checklist 的唯一模板来源。"""
+"""ETSI 阶段 3.1 连续操作窗口的版本来源。"""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ _CHECKLIST_PATH = Path(__file__).with_name("traffic_checklist.json")
 
 
 def load_traffic_checklist() -> tuple[str, list[dict]]:
-    """返回版本号与独立副本，避免 Pipeline/Web 各自硬编码清单。"""
+    """返回版本号；items 仅用于读取旧工作区，新运行固定为空。"""
     payload = json.loads(_CHECKLIST_PATH.read_text(encoding="utf-8"))
     version = str(payload["checklist_version"])
     items = payload["items"]
-    if not isinstance(items, list) or not items:
-        raise ValueError("traffic checklist 必须包含至少一个 item")
+    if not isinstance(items, list):
+        raise ValueError("traffic checklist items 必须是列表")
     seen: set[str] = set()
     copied: list[dict] = []
     for item in items:

@@ -11,5 +11,7 @@ def test_preflight_is_offline_and_reports_missing_tools(tmp_path):
 
     assert result["readiness"]["offline_ready"] is True
     assert result["readiness"]["traffic_ready"] is False
+    assert result["readiness"]["traffic_intelligence_ready"] is False
+    assert result["traffic_intelligence"]["selected_backend"] == "direct_tshark"
     assert result["dut"]["reachability"] == "not_checked"
     assert result["deployment"]["path_mapping"]["source"] == "environment"

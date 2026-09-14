@@ -78,9 +78,10 @@ class TrafficStateStore:
                 "evidence": [],
             })
         state = {
-            "schema_version": 1,
+            "schema_version": 2,
             "attempt_id": f"traffic-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
             "checklist_version": checklist_version,
+            "operation_mode": "continuous_unlabelled",
             "status": "PREPARING",
             "control_mode": control_mode,
             "dut_ip": dut_ip,

@@ -85,6 +85,58 @@ def _catalog() -> dict:
     return _read_json(_CATALOG_PATH) or {}
 
 
+def build_traffic_intelligence_report(workspace: Path) -> dict:
+    """读取已校验 Bundle，只暴露报告所需的结构化摘要与差异。"""
+    bundle_dir = Path(workspace) / "traffic-intelligence"
+    if not (bundle_dir / "manifest.json").is_file():
+        return {"status": "not_available"}
+    try:
+        from framework.traffic_intelligence.bundle_store import (
+            TrafficIntelligenceBundleStore,
+        )
+
+        store = TrafficIntelligenceBundleStore(Path(workspace))
+        manifest = store.load_manifest()
+        inventory = store.read_json("inventory.json", max_bytes=2 * 1024 * 1024)
+        summary = store.read_json("summary-for-ai.json", max_bytes=2 * 1024 * 1024)
+        alignments = store.read_json("declaration-alignments.json", max_bytes=16 * 1024 * 1024)
+        clusters = store.read_json("unknown-protocol-clusters.json", max_bytes=16 * 1024 * 1024)
+        windows = store.read_json("automatic-activity-windows.json", max_bytes=8 * 1024 * 1024)
+        correlations = store.read_json("dns-correlations.json", max_bytes=8 * 1024 * 1024)
+        if not all(isinstance(value, list) for value in (alignments, clusters, windows, correlations)):
+            raise ValueError("Traffic Intelligence 列表产物结构无效")
+        mismatch = [item for item in alignments if item.get("overall") == "MISMATCH"]
+        undeclared = [
+            item for item in alignments if item.get("overall") == "UNDECLARED_OBSERVED"
+        ]
+        not_observed = [item for item in alignments if item.get("overall") == "NOT_OBSERVED"]
+        return {
+            "status": "complete",
+            "capture_sha256": manifest.capture_sha256,
+            "backend": manifest.analysis_backend,
+            "fallback_reason": manifest.fallback_reason,
+            "inventory": inventory,
+            "summary": summary,
+            "mismatches": mismatch[:100],
+            "undeclared_observed": undeclared[:100],
+            "not_observed": not_observed[:100],
+            "unknown_clusters": clusters[:100],
+            "activity_windows": windows[:100],
+            "dns_correlation_count": len(correlations),
+            "truncated": any(
+                len(items) > 100
+                for items in (mismatch, undeclared, not_observed, clusters, windows)
+            ),
+            "payload_included": False,
+        }
+    except Exception as exc:
+        return {
+            "status": "invalid",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "payload_included": False,
+        }
+
+
 def build_report_data(workspace: Path) -> dict:
     """从工作区收集唯一的结构化报告数据，跳过 Phase 中间 evidence。"""
     workspace = Path(workspace)
@@ -133,6 +185,7 @@ def build_report_data(workspace: Path) -> dict:
             "errors": pipeline.get("errors", []),
         },
         "traffic": TrafficStateStore(workspace).read(),
+        "traffic_intelligence": build_traffic_intelligence_report(workspace),
         "verdict_counts": counts,
         "total_clauses": len(clauses),
         "clauses": clauses,
@@ -193,6 +246,153 @@ def _pcap_outputs(workspace: Path) -> dict[str, list[dict]]:
     return out
 
 
+def _structured_refs(clause: dict) -> tuple[set[str], set[int]]:
+    """读取结构化 Flow/frame 引用；不从自然语言 description 猜测。"""
+    flow_ids: set[str] = set()
+    frame_numbers: set[int] = set()
+    for evidence in clause.get("evidence", []):
+        if not isinstance(evidence, dict):
+            continue
+        raw_flow_ids = evidence.get("flow_ids", evidence.get("flowIds", []))
+        raw_frames = evidence.get("frame_numbers", evidence.get("frameNumbers", []))
+        if isinstance(raw_flow_ids, list):
+            flow_ids.update(
+                str(value).strip() for value in raw_flow_ids if str(value).strip()
+            )
+        if isinstance(raw_frames, list):
+            for value in raw_frames:
+                try:
+                    number = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if number > 0:
+                    frame_numbers.add(number)
+    return flow_ids, frame_numbers
+
+
+def _traffic_intelligence_refs_by_clause(
+    workspace: Path,
+    clauses: list[dict],
+) -> dict[str, dict]:
+    """一次校验、一次扫描 Bundle，解析所有条款的显式 Flow/frame 引用。"""
+    requested: dict[str, tuple[set[str], set[int]]] = {}
+    for clause in clauses:
+        clause_id = str(clause.get("clause_id", "unknown"))
+        flow_ids, frame_numbers = _structured_refs(clause)
+        if flow_ids or frame_numbers:
+            requested[clause_id] = (flow_ids, frame_numbers)
+    if not requested:
+        return {}
+
+    base = {
+        clause_id: {
+            "schema_version": 1,
+            "clause_id": clause_id,
+            "status": "invalid_bundle",
+            "source": "traffic-intelligence/manifest.json",
+            "capture_sha256": None,
+            "capture_artifact": "capture.pcap",
+            "manifest_sha256": None,
+            "requested_flow_ids": sorted(flow_ids),
+            "flow_ids": [],
+            "missing_flow_ids": sorted(flow_ids),
+            "requested_frame_numbers": sorted(frame_numbers),
+            "frame_numbers": [],
+            "missing_frame_numbers": sorted(frame_numbers),
+            "analysis_sources": ["traffic-intelligence/manifest.json"],
+            "payload_included": False,
+        }
+        for clause_id, (flow_ids, frame_numbers) in requested.items()
+    }
+
+    try:
+        from framework.traffic_intelligence.bundle_store import (
+            TrafficIntelligenceBundleStore,
+        )
+
+        store = TrafficIntelligenceBundleStore(workspace)
+        manifest = store.load_manifest()
+        capture_path = _within_workspace(workspace, manifest.capture_artifact)
+        if capture_path is None:
+            raise ValueError("Bundle capture_artifact 越出工作区")
+        if capture_path.is_file():
+            manifest = store.load_manifest(
+                verify_artifacts=False,
+                capture_path=Path(manifest.capture_artifact),
+            )
+        manifest_hash = _sha256(workspace / "traffic-intelligence" / "manifest.json")
+        declared = {artifact.path for artifact in manifest.artifacts}
+        wanted_flow_ids = {
+            flow_id for flow_ids, _ in requested.values() for flow_id in flow_ids
+        }
+        wanted_frames = {
+            number for _, frame_numbers in requested.values() for number in frame_numbers
+        }
+
+        flows: dict[str, dict] = {}
+        if wanted_flow_ids:
+            if "flows.jsonl" not in declared:
+                raise ValueError("Bundle 缺少 flows.jsonl，无法校验 flowIds")
+            for flow in store.iter_jsonl("flows.jsonl"):
+                flow_id = str(flow.get("flow_id", ""))
+                if flow_id in wanted_flow_ids:
+                    flows[flow_id] = flow
+
+        existing_frames: set[int] = set()
+        if wanted_frames:
+            if "frames.jsonl" not in declared:
+                raise ValueError("Bundle 缺少 frames.jsonl，无法校验 frameNumbers")
+            for frame in store.iter_jsonl("frames.jsonl"):
+                try:
+                    number = int(frame.get("frame_number"))
+                except (TypeError, ValueError):
+                    continue
+                if number in wanted_frames:
+                    existing_frames.add(number)
+
+        for clause_id, (flow_ids, frame_numbers) in requested.items():
+            found_flow_ids = sorted(flow_ids & flows.keys())
+            missing_flow_ids = sorted(flow_ids - flows.keys())
+            found_explicit_frames = frame_numbers & existing_frames
+            missing_frames = sorted(frame_numbers - existing_frames)
+            resolved_frames = set(found_explicit_frames)
+            for flow_id in found_flow_ids:
+                for value in flows[flow_id].get("frame_refs", []):
+                    try:
+                        number = int(value)
+                    except (TypeError, ValueError):
+                        continue
+                    if number > 0:
+                        resolved_frames.add(number)
+
+            missing_any = bool(missing_flow_ids or missing_frames)
+            if resolved_frames:
+                status = "partial" if missing_any else "ready"
+            else:
+                status = "unresolved"
+            sources = ["traffic-intelligence/manifest.json"]
+            if flow_ids:
+                sources.append("traffic-intelligence/flows.jsonl")
+            if frame_numbers:
+                sources.append("traffic-intelligence/frames.jsonl")
+            base[clause_id].update({
+                "status": status,
+                "capture_sha256": manifest.capture_sha256,
+                "capture_artifact": manifest.capture_artifact,
+                "manifest_sha256": manifest_hash,
+                "flow_ids": found_flow_ids,
+                "missing_flow_ids": missing_flow_ids,
+                "frame_numbers": sorted(resolved_frames),
+                "missing_frame_numbers": missing_frames,
+                "analysis_sources": sources,
+            })
+    except Exception as exc:
+        reason = f"{type(exc).__name__}: {exc}"
+        for item in base.values():
+            item["reason"] = reason
+    return base
+
+
 def _tool_receipts(workspace: Path) -> tuple[dict[str, list[tuple[Path, dict]]], int]:
     """按 receipt 声明的 phase 条款范围建立索引，不推断更细的条款归属。"""
     by_clause: dict[str, list[tuple[Path, dict]]] = {}
@@ -242,16 +442,33 @@ def _frame_numbers_from_output(path: Path) -> list[int]:
     return sorted(number for number in frames if number > 0)
 
 
-def _pcap_slice_request(workspace: Path, clause_id: str, pcap_items: list[dict]) -> dict:
+def _pcap_slice_request(
+    workspace: Path,
+    clause_id: str,
+    pcap_items: list[dict],
+    traffic_refs: dict | None = None,
+) -> dict:
     frames: set[int] = set()
     sources: list[str] = []
-    for item in pcap_items:
-        source = workspace / "pcap_analysis" / item["file"]
-        if source.suffix.lower() == ".json" and source.exists():
-            frames.update(_frame_numbers_from_output(source))
-            sources.append(f"pcap_analysis/{item['file']}")
-    capture = workspace / "capture.pcap"
-    if not capture.exists():
+    flow_ids: list[str] = []
+    reference_source = "pcap_analysis_compatibility"
+    if traffic_refs is not None:
+        reference_source = "traffic_intelligence"
+        frames.update(traffic_refs.get("frame_numbers", []))
+        flow_ids = list(traffic_refs.get("flow_ids", []))
+        sources.extend(traffic_refs.get("analysis_sources", []))
+    else:
+        for item in pcap_items:
+            source = workspace / "pcap_analysis" / item["file"]
+            if source.suffix.lower() == ".json" and source.exists():
+                frames.update(_frame_numbers_from_output(source))
+                sources.append(f"pcap_analysis/{item['file']}")
+    source_pcap = (
+        str(traffic_refs.get("capture_artifact", "capture.pcap"))
+        if traffic_refs is not None else "capture.pcap"
+    )
+    capture = _within_workspace(workspace, source_pcap)
+    if capture is None or not capture.is_file():
         status = "no_capture"
     elif not frames:
         status = "no_frame_index"
@@ -262,11 +479,16 @@ def _pcap_slice_request(workspace: Path, clause_id: str, pcap_items: list[dict])
     return {
         "clause_id": clause_id,
         "status": status,
-        "source_pcap": "capture.pcap",
+        "source_pcap": source_pcap,
+        "capture_sha256": (
+            traffic_refs.get("capture_sha256") if traffic_refs is not None else None
+        ),
         "frame_numbers": sorted(frames),
+        "flow_ids": flow_ids,
+        "reference_source": reference_source,
         "analysis_sources": sources,
         "display_filter": " or ".join(f"frame.number == {number}" for number in sorted(frames)),
-        "note": "仅在存在明确帧索引时才能生成单条款 PCAP；否则保留原始 PCAP 引用和分析产物。",
+        "note": "优先使用已校验 Traffic Intelligence 的结构化 Flow/frame 引用；仅在条款未提供该引用时回退 pcap_analysis 兼容索引。",
     }
 
 
@@ -276,6 +498,9 @@ def build_evidence_packages(workspace: Path, report: dict | None = None) -> dict
     report = report or build_report_data(workspace)
     catalog = _catalog()
     pcap_outputs = _pcap_outputs(workspace)
+    traffic_refs_by_clause = _traffic_intelligence_refs_by_clause(
+        workspace, report["clauses"]
+    )
     receipt_index, _ = _tool_receipts(workspace)
     package_root = workspace / PACKAGE_DIR
     package_root.mkdir(parents=True, exist_ok=True)
@@ -337,6 +562,22 @@ def build_evidence_packages(workspace: Path, report: dict | None = None) -> dict
                 record["status"] = "declared_but_missing"
             records.append(record)
 
+        # 新证据链只接受 Work Agent 的结构化 flowIds/frameNumbers，并在完整性
+        # 校验通过的主 Bundle 中解析；不扫描描述文本，也不复制 Payload。
+        traffic_refs = traffic_refs_by_clause.get(clause_id)
+        if traffic_refs is not None:
+            refs_name = "traffic_intelligence_refs.json"
+            _write_json(evidence_dir / refs_name, traffic_refs)
+            records.append({
+                "kind": "traffic_intelligence_refs",
+                "status": traffic_refs["status"],
+                "source": traffic_refs["source"],
+                "flow_ids": traffic_refs["flow_ids"],
+                "frame_numbers": traffic_refs["frame_numbers"],
+                "package_file": f"evidence/{refs_name}",
+                "payload_included": False,
+            })
+
         # Receipt 是 phase 级调用轨迹，不替代单条款 evidence。保留它实际覆盖的
         # clause_ids，避免将一次多条款调用误述为只证明当前条款。
         for ordinal, (source, receipt) in enumerate(receipt_index.get(clause_id, []), 1):
@@ -355,7 +596,9 @@ def build_evidence_packages(workspace: Path, report: dict | None = None) -> dict
                 "sha256": _sha256(source),
             })
 
-        slice_request = _pcap_slice_request(workspace, clause_id, pcap_items)
+        slice_request = _pcap_slice_request(
+            workspace, clause_id, pcap_items, traffic_refs
+        )
         _write_json(evidence_dir / "pcap_slice_request.json", slice_request)
         records.append({"kind": "pcap_slice", "status": slice_request["status"], "package_file": "evidence/pcap_slice_request.json"})
 
@@ -398,12 +641,43 @@ def render_html_report(report: dict) -> str:
         )
     counts = " · ".join(f"{key}: {value}" for key, value in report["verdict_counts"].items())
     review = "；".join(report["pipeline"].get("review_reasons", [])) or "无"
+    traffic_intelligence = report.get("traffic_intelligence") or {}
+    ti_inventory = traffic_intelligence.get("inventory") or {}
+    ti_rows = []
+    for title, key in (
+        ("声明不一致", "mismatches"),
+        ("未声明但已观察", "undeclared_observed"),
+        ("已声明但未观察", "not_observed"),
+    ):
+        for item in traffic_intelligence.get(key, [])[:30]:
+            ti_rows.append(
+                "<tr>"
+                f"<td>{html.escape(title)}</td>"
+                f"<td>{html.escape(str(item.get('declaration_id') or '-'))}</td>"
+                f"<td>{html.escape(', '.join(str(value) for value in item.get('flow_ids', [])) or '-')}</td>"
+                f"<td>{html.escape(str(item.get('reason', '')))}</td>"
+                "</tr>"
+            )
+    ti_html = (
+        "<h2>Traffic Intelligence</h2>"
+        f"<p>状态：{html.escape(str(traffic_intelligence.get('status', 'not_available')))}；"
+        f"Flow：{ti_inventory.get('flow_count', 0)}；"
+        f"声明：{ti_inventory.get('declaration_count', 0)}；"
+        f"未知协议集群：{ti_inventory.get('unknown_cluster_count', 0)}</p>"
+        + (
+            "<table><tr><th>类别</th><th>声明</th><th>Flow</th><th>说明</th></tr>"
+            + "".join(ti_rows)
+            + "</table>"
+            if ti_rows else "<p>没有可展示的声明差异。</p>"
+        )
+    )
     return f"""<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><title>ETSI TS 103 701 认证检测报告</title>
 <style>body{{font:15px system-ui,sans-serif;max-width:1100px;margin:32px auto;line-height:1.55;color:#19202a}}table{{border-collapse:collapse}}td,th{{border:1px solid #ccd4df;padding:7px 10px;text-align:left}}details{{border:1px solid #d8dee8;padding:10px 14px;margin:8px 0;border-radius:6px}}summary{{cursor:pointer}}code{{font-family:ui-monospace,monospace}}.warn{{color:#9a6700}}</style>
 <h1>ETSI TS 103 701 认证检测报告</h1><p>任务日期：{html.escape(report['test_date'])}</p>
 <h2>样品</h2><table>{''.join(f'<tr><th>{html.escape(k)}</th><td>{html.escape(str(v))}</td></tr>' for k,v in product.items())}</table>
 <h2>结果汇总</h2><p>{html.escape(counts)}；总计：{report['total_clauses']}</p><p>已记录工具调用收据：{report.get('tool_receipt_count', 0)}</p>
 <h2>状态与复核</h2><p class=\"warn\">{html.escape(review)}</p>
+{ti_html}
 <h2>逐条款检测结果</h2>{''.join(rows)}
 </html>"""
 
@@ -451,6 +725,7 @@ def render_markdown_report(report: dict) -> str:
     task_id = f"HCTL-{test_date.replace('-', '')}"
     pipeline = report.get("pipeline", {})
     traffic = report.get("traffic") or {}
+    traffic_intelligence = report.get("traffic_intelligence") or {}
     clauses = sorted(report.get("clauses", []), key=lambda item: (item.get("_module", ""), item.get("clause_id", "")))
     counts = report.get("verdict_counts", {})
     total = report.get("total_clauses", len(clauses))
@@ -496,18 +771,39 @@ def render_markdown_report(report: dict) -> str:
             "## 2. 阶段 3.1 流量采集取证",
             "",
             f"- 状态：`{_markdown_text(traffic.get('status', 'UNKNOWN'))}`",
+            f"- 操作模式：`{_markdown_text(traffic.get('operation_mode', 'continuous_unlabelled'))}`",
             f"- 采集 attempt：`{_markdown_text(traffic.get('attempt_id', '?'))}`",
             f"- PCAP：`{_markdown_text(traffic.get('capture_pcap', 'capture.pcap'))}`",
             "",
-            "| 操作项 | 状态 | 时间 | 备注 | 证据引用 |",
-            "|------|:----:|------|------|----------|",
         ])
-        for item in traffic.get("checklist", []):
-            evidence = " · ".join(str(value) for value in item.get("evidence", [])) or "-"
-            lines.append(
-                f"| {_markdown_text(item.get('label'))} | {_markdown_text(item.get('status'))} | "
-                f"{_markdown_text(item.get('updated_at'))} | {_markdown_text(item.get('note'))} | {_markdown_text(evidence)} |"
-            )
+
+    if traffic_intelligence.get("status") == "complete":
+        inventory = traffic_intelligence.get("inventory") or {}
+        summary = traffic_intelligence.get("summary") or {}
+        lines.extend([
+            "## 2.1 Traffic Intelligence 结构化分析",
+            "",
+            f"- 分析后端：`{_markdown_text(traffic_intelligence.get('backend'))}`",
+            f"- Flow：**{inventory.get('flow_count', 0)}**；端点：**{inventory.get('endpoint_count', 0)}**；未知协议集群：**{inventory.get('unknown_cluster_count', 0)}**",
+            f"- IXIT 通信声明：**{inventory.get('declaration_count', 0)}**；DNS 关联：**{traffic_intelligence.get('dns_correlation_count', 0)}**",
+            f"- 加密分类：`{_markdown_text(json.dumps(summary.get('encryption_counts', {}), ensure_ascii=False))}`",
+            "- 报告不包含原始 Payload；协议、端口、目标和加密差异保留 Flow/frame 引用。",
+            "",
+            "| 类别 | 声明 ID | Flow | Frame | 说明 |",
+            "|------|---------|------|-------|------|",
+        ])
+        for label, key in (
+            ("声明不一致", "mismatches"),
+            ("未声明但已观察", "undeclared_observed"),
+            ("已声明但未观察", "not_observed"),
+        ):
+            for item in traffic_intelligence.get(key, []):
+                lines.append(
+                    f"| {label} | {_markdown_text(item.get('declaration_id'))} | "
+                    f"{_markdown_text(', '.join(item.get('flow_ids', [])))} | "
+                    f"{_markdown_text(', '.join(str(value) for value in item.get('frame_refs', [])))} | "
+                    f"{_markdown_text(item.get('reason'))} |"
+                )
         lines.append("")
 
     lines.extend([
@@ -666,6 +962,16 @@ def materialize_clause_pcap_slice(workspace: Path, clause_id: str, timeout_secon
     source = _within_workspace(workspace, str(request.get("source_pcap", "capture.pcap")))
     if source is None or not source.is_file():
         request.update({"status": "no_capture", "updated_at": datetime.now().isoformat(timespec="seconds")})
+        _write_json(request_path, request)
+        _sync_slice_status(workspace, clause_id, request)
+        return request
+
+    expected_capture_hash = request.get("capture_sha256")
+    if expected_capture_hash and _sha256(source) != expected_capture_hash:
+        request.update({
+            "status": "capture_hash_mismatch",
+            "updated_at": datetime.now().isoformat(timespec="seconds"),
+        })
         _write_json(request_path, request)
         _sync_slice_status(workspace, clause_id, request)
         return request

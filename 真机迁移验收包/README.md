@@ -10,7 +10,7 @@
 4. 设定本机环境变量。可复制并填充 [环境变量.template.ps1](环境变量.template.ps1)，但不得把真实 Token 写入该文件或 PowerShell 历史。
 5. 把 ICS/IXIT 原件放进 `INPUT_ROOTS` 之一下，把 old/tampered 固件放进 `FIRMWARE_ROOTS` 之下。浏览器只登记本地路径；不会上传或复制原件。IXIT 会由现有解析器产出工作区内的 `inputs/ixit.normalized.json` 和兼容 `ixit.json`，供 Agent 消费。
 6. 启动 Web 控制台后，先创建 workspace、填写 DUT IP、登记 IXIT/固件本地路径并运行离线 preflight。确认 snapshot 中工具路径与版本正确后，才开始 run。
-7. 进入 Traffic 后，先确认 Burp 链路为“浏览器 → Burp:8080 → xray:7778 → DUT”，再点击“确认通道就绪，开始操作”。逐项记录完成/N-A、说明及证据相对路径，最后点击“完成采集”。
+7. 进入 Traffic 后，先确认 Burp 链路为“浏览器 → Burp:8080 → xray:7778 → DUT”，再点击“确认通道就绪，开始操作”。从头到尾连续完成本次全部设备操作，不逐项勾选、打标签或补时间点，最后只点击一次“完成采集”。
 
 ## 本地路径引用规则
 

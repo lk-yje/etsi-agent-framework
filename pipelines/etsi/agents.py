@@ -85,6 +85,9 @@ def build_clause_recipe_text(clause_ids) -> str:
         burp = entry.get("tools", {}).get("burp_mcp", [])
         if burp:
             head += f" | burp: {','.join(burp)}"
+        traffic = entry.get("tools", {}).get("traffic_intelligence", [])
+        if traffic:
+            head += f" | traffic: {','.join(traffic)}"
         lines.append(head)
         method = entry.get("method", "")
         if method:

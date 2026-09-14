@@ -44,7 +44,7 @@ Pipeline 模式分两轮。
 | Step 4 | 6 误判模式扫描 | 发现模式时必须形成可追溯 finding |
 
 **逐条款，不批量**：12 个条款 = 12 次三角对照。禁止「整体来看证据基本充分 → GOOD」。
-**Frame 编号硬约束**：pcap evidence 无 frame 编号或 pcap_analysis 引用 → 该条款 auto-NEEDS。
+**Frame 编号硬约束**：流量 evidence 必须有可验证的 Traffic Intelligence `flow_id` + frame 引用，或明确的 pcap frame 编号。仅引用 `capture.pcap`、`pcap_analysis/` 或高层统计 → 该条款 auto-NEEDS。
 
 ---
 
@@ -60,7 +60,7 @@ Pipeline 模式分两轮。
 **执行**：
 1. Step 1: Harness 合规检查 — 核验 `executionTrace` 非空、preflight 存在、全部 clauseId 被覆盖、`meta.retryCount` 在 0~2。输出 `harnessReport`。issues 非空 → FLAGGED。
 2. Step 2: 逐条款三角对照 (Standard-IXIT-Evidence) — 详细方法见下方 §审计流程 > 阶段 3 步骤 3.1~3.4。Standard 锚点使用条款速查与裁决表作为编排的受控结论索引，并对照 IXIT 与 evidence；不得把不存在于输入中的标准原文臆造成证据。
-3. Step 3: Frame 编号可索引性 — 逐条 evidence 检查 frame 编号/Burp 序号/pcap_analysis 路径等索引信息。无索引的 pcap evidence → NEEDS。
+3. Step 3: Frame 编号可索引性 — 逐条 evidence 检查 Traffic Intelligence flow_id/frame、pcap frame 编号或 Burp 序号。兼容目录路径不能替代具体索引；无索引的流量 evidence → NEEDS。
 4. Step 4: 误判模式扫描 — 对照下方 §关键误判模式 1~6 + common-errors.md 的 10 类模式。模式 1+2 涉及的关键条款必须逐字写出检查过程。
 5. 裁决 → **输出嵌套 audit-result JSON**（按 audit-output-schema.json：`audit.verdict` 为 ACCEPT/REJECT/FLAGGED；不含旧版 `stepAudit` 字段）
 

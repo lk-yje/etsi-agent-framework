@@ -1,6 +1,6 @@
 # ETSI Skill 资产消费台账
 
-> 更新：2026-08-19。此台账把 `skills/` 中每份资料映射到明确消费者。
+> 更新：2026-09-12（原始台账：2026-08-19）。此台账把 `skills/` 中每份资料映射到明确消费者。
 > “不进入某个 Agent Prompt”不等于无用；资料可服务于运行时、编排、审计、
 > 环境准备或回归。除已退役的 M6 派发模板外，未删除任何已有知识资产。
 
@@ -37,7 +37,7 @@
 | `tool-error-kb.json` | 已绑定 | Work Agent 公共知识：Burp/Playwright/本地工具的已知参数与故障处理。 |
 | `auth-diff-workflow.md` | 已绑定 | M1/M5 的模块 ammo：认证差异与越权验证工作流。 |
 | `frontend-encryption-check.md` | 条件绑定 | M2 phase_A、M3 phase_B：仅在需要浏览器加密验证时提供。 |
-| `pcap-analyzer-reference.md` | 条件绑定 | M3 phase_A/B、M4 phase_A、M5 phase_C：将 `pcap_analysis/` 文件映射回条款裁决。Pipeline 已实际调用 `pcap_analyzer.py`。 |
+| `pcap-analyzer-reference.md` | 条件绑定 | M3 phase_A/B、M4 phase_A、M5 phase_C：定义 Traffic Intelligence 查询、保守裁决边界及 `pcap_analysis/` 迁移兼容规则；主事实来源是已校验的 Traffic Bundle，旧目录只用于兼容回退。 |
 | `vm-methods.md` | 条件绑定 | M1 phase_A：端口发现阶段可按目标部署方式采用 VM 减法扫描。 |
 | `module-split.md` | 编排/契约 | `modules.py`、Phase 定义和并行边界的设计来源；不作为单个 Agent 的大 Prompt。 |
 | `evidence-schema.json` | 编排/契约 | `contracts/evidence.py`、模板生成与 L1 校验必须与其保持字段语义一致。 |
@@ -79,7 +79,7 @@
 
 ## 立即接线与后续验收
 
-本次已接通：能力矩阵的 Work 公共加载，以及 `knowledge_additions` 的受限解析；M1、M2、M3、M4、M5 的相关 Phase 已各自挂载 VM、前端加密或 pcap 查询资料。
+本次已接通：能力矩阵的 Work 公共加载，以及 `knowledge_additions` 的受限解析；M1、M2、M3、M4、M5 的相关 Phase 已各自挂载 VM、前端加密或 Traffic Intelligence 查询资料。
 
 后续每一个条款必须完成以下检查才能标为“能力已落地”：
 

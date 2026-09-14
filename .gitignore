@@ -51,3 +51,14 @@ scratch/
 
 # 实验运行记录与派生产物不进入公开发布包
 experiments/
+
+# 流量证据与敏感派生产物（只允许留在受控 workspace）
+*.pcap
+*.pcapng
+*.cap
+*.sqlite
+*.sqlite3
+*.keylog
+traffic-intelligence/
+traffic-intelligence-derived/
+vendor-dissectors/private/

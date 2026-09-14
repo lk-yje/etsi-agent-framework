@@ -47,7 +47,7 @@ def build_etsi_modules(skills_root: Path) -> Tuple:
         ammo_paths=(
             report_ref / "auth-diff-workflow.md",
         ),
-        tools=("bash", "burp_mcp"),
+        tools=("bash", "burp_mcp", "traffic_intelligence"),
     )
 
     # ===== M2: 认证与口令 =====
@@ -72,7 +72,7 @@ def build_etsi_modules(skills_root: Path) -> Tuple:
             "5.5-3", "5.5-8", "5.8-1", "5.8-2",
         ),
         ammo_paths=(),
-        tools=("bash", "burp_mcp"),
+        tools=("bash", "burp_mcp", "traffic_intelligence"),
         depends_on="M2",  # 需要 M2 的前端加密分析结果
         upstream_inputs=("evidence/pre-M2-evidence.json",),  # M2 产出的前端加密分析
     )
@@ -90,7 +90,7 @@ def build_etsi_modules(skills_root: Path) -> Tuple:
             "5.7-1", "5.7-2",
         ),
         ammo_paths=(),
-        tools=("bash", "burp_mcp", "playwright_mcp"),
+        tools=("bash", "burp_mcp", "playwright_mcp", "traffic_intelligence"),
     )
 
     # ===== M5: 输入验证与数据保护 =====
@@ -114,7 +114,7 @@ def build_etsi_modules(skills_root: Path) -> Tuple:
             exploit_ref / "web-rce.md",
             exploit_ref / "web-traversal.md",
         ),
-        tools=("bash", "burp_mcp", "playwright_mcp"),
+        tools=("bash", "burp_mcp", "playwright_mcp", "traffic_intelligence"),
     )
 
     return (M0_ICS_VALIDATION, M1_ATTACK_SURFACE, M2_AUTH, M3_COMMUNICATION, M4_UPDATE, M5_INPUT_VALIDATION)

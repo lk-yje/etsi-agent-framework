@@ -34,7 +34,7 @@
 
 ### xray（被动扫描，进主流程）
 
-**xray 与 tshark 同生命周期**——用户开始浏览时启动，用户回复「完成」后关闭。不等固定时长。5.13-1 阶段与 sqlmap/dir_brute_force.py/Burp http_fuzz 并列执行。
+**xray 与 tshark 同生命周期**——用户确认开始时启动，用户连续完成全部计划内操作并回复「完成」后关闭。不等固定时长，也不要求逐步骤勾选、标签或时间点。5.13-1 阶段与 sqlmap/dir_brute_force.py/Burp http_fuzz 并列执行。
 
 **代理链路**：`Browser → Burp:8080 → xray:7778 → DUT`（Burp 设上游代理 `127.0.0.1:7778`，目标 host 为 DUT IP）。xray 配置 `${CFG.XRAY}` 的 `restriction.hostname_allowed` 在 `/etsi-env-check` 时已覆写为本次 DUT IP。
 
@@ -113,27 +113,24 @@ Write-Output "xray stopped — log: $logSize bytes, report: $hasReport"
 | 有漏洞 | `xray_run.log` + `xray_report.json` + `xray_report.html` | ✅ JSON/HTML 含完整请求/响应 + payload 原文 |
 | 无漏洞 | `xray_run.log` 仅此一份 | ✅ 端点列表 + 探针数 + `scanned: N`，广度复核证据 |
 
-### pcap 分析（pcap_analyzer.py 批量查询 → 各模块读结构化文件）
+### Traffic Intelligence（主流量分析入口）
 
-主线程停抓包后运行 `python scripts/pcap_analyzer.py <pcap> --dut-ip <IP> --out-dir <工作区>/pcap_analysis` 一次性生成 22 个结构化文件，agent 按条款直接读 JSON/TXT 做裁决，不再自己跑零散 tshark 命令。详见 `SKILL.md` §阶段 3 步骤 7、`module-split.md` §反模式 2。
+主线程停抓包后先生成并校验 `<工作区>/traffic-intelligence/`。tshark 是帧级事实来源；EasyTshark 仅是可选批处理 Worker，缺失或失败时回退 Direct Tshark。`pcap_analysis/` 仅为最佳努力的迁移兼容输出，不是 Work Agent 前置条件。
 
-> L5 单包下钻（`tshark -r cap.pcap -Y "frame.number==X" -T fields ...`）保留——单帧深入取证仍需 tshark。
+Agent 固定从 `traffic_get_inventory` 开始，再依次使用 `traffic_compare_declarations`、`traffic_list_flows`、`traffic_get_flow`/`traffic_get_encryption_assessment` 和 `traffic_get_frame_details`。未知协议按需查 cluster，远端名称按需查 DNS correlation，重连/传输行为按需查自动 activity windows。
 
-#### 条款 → pcap_analysis 文件映射
+| 条款 | 模块 | 首要查询 | 判定要点 |
+|------|:---:|----------|----------|
+| 5.1-3 | M2 | alignment → 登录 Flow → encryption/frame | TLS 实际协商与 IXIT 比对；前端密码字段仍需 Playwright/Burp 业务证据 |
+| 5.3-2 / 5.3-7 | M4 | Burp 更新请求 → 对应 Flow/encryption/frame | 未捕获实际更新载荷时 INCONCLUSIVE |
+| 5.5-1 | M3 | 全局 inventory/alignment → 相关 Flow/encryption/frame | 明文或声明不一致形成风险；UNKNOWN/高熵不等于加密 |
+| 5.5-6 | M3 | OUTBOUND Flow + 10-SecParam/11-ComMech 对齐 | 未能归属关键安全参数通信时 INCONCLUSIVE |
+| 5.5-7 | M3 | DNS→IP→SNI + 远端 Flow/alignment/encryption | 零外连不能单独推出 N/A/PASS |
+| 5.6-1 / 5.6-2 | M1 | 未声明端口/Flow、广播/明文、unknown cluster | 与 nmap、Banner、Burp 主动证据交叉验证 |
+| 5.8-1 / 5.8-2 | M3 | 个人数据声明 → Flow/encryption/frame | 必须证明 Flow 承载对应个人数据 |
+| 5.9-3 | M5 | RECONNECT/FLOW_BURST window → Flow/frame | 未实际发生重连时 INCONCLUSIVE |
 
-| 条款 | 模块 | 读哪些文件 | 判定要点 |
-|------|:---:|-----------|---------|
-| 5.1-3 (认证加密) | M2 | `5.1-3_tls_versions.json` + `5.1-3_tls_ciphers.json` | TLS 版本/密码套件与 IXIT 一致 |
-| 5.3-2 (安全更新) | M4 | `5.3-2_http_methods.json` | 固件更新 API 方法；Burp WebSocket 查固件上传状态帧 |
-| 5.3-7 (更新加密) | M4 | `5.5-1_server_hello.json` + `5.5-1_proto_hierarchy.txt` | 更新流量 TLS 版本+密码套件+签名算法 |
-| 5.5-1 (通信加密) | M3 | `5.5-1_server_hello.json` + `5.5-1_client_hello.json` + `5.5-1_proto_hierarchy.txt` + `5.5-1_conversations.txt` + `5.5-1_http_check.json` + `5.5-1_http_responses.json` | HTTP 明文→FAIL；加密与 IXIT 不一致→FAIL；降级攻击检测；响应状态码区分重定向/明文内容 |
-| 5.5-6 (CSP 传输加密) | M3 | `5.5-6_dut_outbound.json` + `5.5-6_non_tls.json` + `5.5-6_http_outbound.json` + `5.5-6_tls_appdata.json` + `5.5-6_sensitive_keywords.json` | 非 TLS 外连→FAIL；HTTP 明文外连→FAIL；敏感词明文→FAIL |
-| 5.5-7 (远程 CSP) | M3 | `5.5-7_remote_ips.json` + `5.5-7_all_destinations.json` | 零外连→N/A；有 IP 且非 TLS→FAIL |
-| 5.6-2 (未认证信息) | M1 | `5.6-2_broadcast.json` + `5.6-2_plaintext_services.json` | 广播泄露信息→FAIL；明文 Banner 含版本/SN→FAIL |
-| 5.8-2 (个人数据加密) | M3 | `5.5-1_proto_hierarchy.txt` + `5.5-1_server_hello.json` | 加密层覆盖敏感数据协议 |
-| 5.9-3 (重连安全) | M5 | `5.9-3_syn_bursts.json` + `5.9-3_syn_timestamps.json` + `5.9-3_retransmissions.json` | 密集 SYN 突发→FAIL；重传伴随瞬时重连→异常 |
-
-> **原则**：nmap 覆盖端口发现、Burp proxy_history 覆盖 HTTP 请求/响应头/状态码。pcap_analysis 只提供 Burp/nmap 无法覆盖的独特证据（TLS 握手细节、DUT 外连、广播、TCP 重传、SYN 时序）。
+> 原始 PCAP 不进入 Agent 上下文或公开 Git。frame 下钻默认 metadata-only、一次最多 20 帧，不返回 Payload。
 
 ## Web 渗透类（全自动，需设备可达）
 
@@ -169,7 +166,7 @@ Write-Output "xray stopped — log: $logSize bytes, report: $hasReport"
 
 > 依赖 `playwright` MCP server（`npx @playwright/mcp@latest --browser msedge --isolated`，工具前缀 `mcp__playwright__`）。
 > 用于验证前端加密实现是否与 IXIT 声明一致。playwright MCP 不可用时 → `report_to_main`（暂停主流程，不允许降级为 Burp/curl 替代）。详见 [frontend-encryption-check.md](frontend-encryption-check.md)。
-> **完整流程、工具名映射、判定逻辑、海康实测案例见 [frontend-encryption-check.md](frontend-encryption-check.md)。** 此处仅列速查。
+> **完整流程、工具名映射与判定逻辑见 [frontend-encryption-check.md](frontend-encryption-check.md)。** 其中的示例已匿名化；此处仅列速查。
 
 | 测试内容 | playwright MCP 工具调用顺序 | 适用条款 |
 |----------|---------------------------|---------|

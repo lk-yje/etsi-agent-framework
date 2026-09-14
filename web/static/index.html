@@ -115,25 +115,11 @@ details.coverage-tool>summary:focus-visible{outline:2px solid var(--primary);out
 #eventLog .ts{color:var(--fg-muted);flex-shrink:0}
 #eventLog .tag{color:var(--primary);flex-shrink:0}
 #eventLog .detail{color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* checklist */
-.checklist li{list-style:none;padding:10px;border:1px solid var(--border);border-radius:var(--radius);
-  margin-bottom:8px;transition:background .15s}
-.checklist li:hover{background:var(--bg-inset)}
-.checklist li.done{background:var(--ok-light);border-color:var(--ok);color:var(--ok)}
-.check-item-top{display:flex;gap:10px;align-items:flex-start}
-.check-main{display:flex;gap:8px;align-items:flex-start;flex:1;cursor:pointer;line-height:1.45}
-.check-main input{margin-top:3px;accent-color:var(--ok)}
-.check-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.check-actions select,.check-detail-grid input,.check-detail-grid textarea{border:1px solid var(--border);border-radius:5px;
-  background:var(--bg-card);color:var(--fg);font:inherit;padding:5px 7px}
-.check-detail-grid{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,1fr) auto;gap:8px;margin:9px 0 0 26px;align-items:end}
-.check-detail-grid label{font-size:11px;color:var(--fg-dim);display:grid;gap:4px}
-.check-detail-grid textarea{min-height:52px;resize:vertical}
-.check-detail-grid input{width:100%}
-.check-saved{margin:8px 0 0 26px;font-size:12px;color:var(--fg-dim)}
 .cancel-timeline{margin-top:10px;padding:9px;border:1px solid var(--warn);border-radius:var(--radius);background:var(--warn-light);font-size:12px}
 .cancel-timeline ol{margin:7px 0 0;padding-left:19px}.cancel-timeline li{margin:3px 0}.cancel-timeline .done{color:var(--ok)}.cancel-timeline .current{color:var(--warn);font-weight:600}.cancel-timeline .pending{color:var(--fg-muted)}
-@media(max-width:680px){.check-item-top{display:block}.check-actions{margin:8px 0 0 26px}.check-detail-grid{grid-template-columns:1fr;margin-left:26px}}
+.continuous-window{height:100%;min-height:190px;padding:18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-inset);display:flex;flex-direction:column;justify-content:center;gap:10px}
+.continuous-window strong{font-size:16px;color:var(--primary)}
+.continuous-window p{margin:0;color:var(--fg-dim);line-height:1.65}
 /* 流量面板 */
 .traffic-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
 @media(max-width:900px){.traffic-grid{grid-template-columns:1fr}}
@@ -206,7 +192,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
         </div>
         <div>
           <label>DUT IP（必填；离线时仅记录，不发起连接）</label>
-          <input type="text" id="inpIp" placeholder="192.168.1.64" required>
+          <input type="text" id="inpIp" placeholder="192.0.2.10（示例）" required>
         </div>
         <div>
           <label>运行模式</label>
@@ -312,9 +298,10 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
             <div id="xrayTail" class="mono" style="margin-top:8px;max-height:110px;overflow:auto;background:var(--bg-inset);padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap"></div>
           </div>
         </div>
-        <div>
-          <div style="font-size:12px;color:var(--fg-dim);margin-bottom:8px">操作清单 —— 先确认通道就绪，再在浏览器中操作 DUT。每项完成/N-A 都会写入工作区审计记录。</div>
-          <ol class="checklist" id="checklist"></ol>
+        <div class="continuous-window">
+          <strong>连续完成全部设备操作</strong>
+          <p>点击“开始操作”后，从头到尾完成本次测试需要的所有设备操作。中途不分步骤、不打标签，也不需要逐项确认。</p>
+          <p>全部操作结束后，只点击一次“完成采集，进入分析”。系统会自动进行会话切分、活动窗口识别和协议画像。</p>
         </div>
       </div>
     </div>
@@ -349,6 +336,13 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
     <div class="panel">
       <h2>裁决统计</h2>
       <div id="reportStats"></div>
+    </div>
+    <div class="panel">
+      <h2>Traffic Intelligence <span class="hint">结构化事实，不含原始 Payload</span></h2>
+      <div id="trafficIntelSummary"></div>
+      <div id="trafficIntelFindings" style="margin-top:12px"></div>
+      <button class="btn secondary" id="btnLoadTrafficFlows" style="margin-top:12px">浏览 Flow</button>
+      <div id="trafficIntelFlows" style="margin-top:12px"></div>
     </div>
     <div class="panel">
       <h2>审计意见</h2>
@@ -756,7 +750,7 @@ function renderTraffic(t, proc, st, cancellation){
 
   const hints = {
     WAITING_START: '请确认 Burp、tshark 和 xray 均已就绪，然后点击「开始操作」。',
-    WAITING_FINISH: '完成或标记 N/A 每一项必做操作后，点击「完成采集」。',
+    WAITING_FINISH: '连续完成全部设备操作后，直接点击「完成采集」；中途无需逐项标记。',
     BLOCKED: t.review_reason || '双通道未建立，不能作为完整流量取证。',
     SKIPPED: t.review_reason || '本阶段被跳过，报告将标记为待人工复核。',
     FAILED: t.review_reason || '采集或分析失败，报告将标记为待人工复核。',
@@ -764,55 +758,6 @@ function renderTraffic(t, proc, st, cancellation){
   $('#waitHint').innerHTML = hints[trafficStatus] ? `<span class="badge warn">${escapeHtml(hints[trafficStatus])}</span>` : '';
   renderCancellation(cancellation);
 
-  // checklist 由 traffic_state.json 供给；刷新或重新打开页面也不会丢失。
-  const cl = $('#checklist');
-  const checklistKey = `${t.attempt_id || 'legacy'}:${trafficStatus}:${JSON.stringify(t.checklist || [])}`;
-  if (cl.dataset.attempt !== checklistKey){
-    cl.innerHTML = (t.checklist || []).map((item, i) => {
-      const legacy = typeof item === 'string';
-      const id = legacy ? String(i) : item.id;
-      const label = legacy ? item : item.label;
-      const itemStatus = legacy ? 'pending' : (item.status || 'pending');
-      const required = (legacy || item.required) ? '' : '（可选）';
-      const editable = canAct && ['COLLECTING','WAITING_FINISH'].includes(trafficStatus);
-      const disabled = editable ? '' : 'disabled';
-      const note = legacy ? '' : (item.note || '');
-      const evidence = legacy ? '' : (item.evidence || []).join(', ');
-      return `<li class="${itemStatus === 'done' ? 'done' : ''}">
-        <div class="check-item-top">
-          <label class="check-main"><input type="checkbox" data-item-toggle="${escapeHtml(id)}" ${itemStatus === 'done' ? 'checked' : ''} ${legacy ? 'disabled' : disabled}>
-            <span>${escapeHtml(label)} <small class="muted">${required}</small></span>
-          </label>
-          ${legacy ? '' : `<div class="check-actions"><select data-item-id="${escapeHtml(id)}" aria-label="${escapeHtml(label)} 状态" ${disabled}>
-            <option value="pending" ${itemStatus === 'pending' ? 'selected' : ''}>未记录</option>
-            <option value="done" ${itemStatus === 'done' ? 'selected' : ''}>已完成</option>
-            <option value="na" ${itemStatus === 'na' ? 'selected' : ''}>N/A</option>
-          </select></div>`}
-        </div>
-        ${legacy ? '' : `<div class="check-detail-grid">
-          <label>操作说明<textarea data-note-item="${escapeHtml(id)}" ${disabled}>${escapeHtml(note)}</textarea></label>
-          <label>证据相对路径（逗号分隔）<input data-evidence-item="${escapeHtml(id)}" value="${escapeHtml(evidence)}" ${disabled}></label>
-          <button class="btn secondary" data-save-item="${escapeHtml(id)}" ${disabled}>保存留痕</button>
-        </div>${note || evidence ? `<div class="check-saved">已记录：${escapeHtml(note || '—')}${evidence ? ` · 证据：${escapeHtml(evidence)}` : ''}</div>` : ''}`}
-      </li>`;
-    }).join('');
-    cl.querySelectorAll('select[data-item-id]').forEach(select => select.onchange = () => {
-      const row = select.closest('li');
-      updateTrafficChecklist(select.dataset.itemId, select.value, trafficChecklistDetails(row));
-    });
-    cl.querySelectorAll('input[data-item-toggle]').forEach(toggle => toggle.onchange = () => {
-      const row = toggle.closest('li');
-      const select = row.querySelector('select[data-item-id]');
-      updateTrafficChecklist(toggle.dataset.itemToggle, toggle.checked ? 'done' : 'pending', trafficChecklistDetails(row));
-      if (select) select.value = toggle.checked ? 'done' : 'pending';
-    });
-    cl.querySelectorAll('button[data-save-item]').forEach(button => button.onclick = () => {
-      const row = button.closest('li');
-      const select = row.querySelector('select[data-item-id]');
-      updateTrafficChecklist(button.dataset.saveItem, select ? select.value : 'pending', trafficChecklistDetails(row));
-    });
-    cl.dataset.attempt = checklistKey;
-  }
 }
 
 function renderCancellation(c){
@@ -842,27 +787,6 @@ async function sendTraffic(action){
     $('#btnTrafficStart').disabled = true; $('#btnDone').disabled = true; $('#btnSkip').disabled = true;
     await refreshAll();
   } catch(e){ toast('确认失败: ' + e.message); }
-}
-
-function trafficChecklistDetails(row){
-  const note = row.querySelector('[data-note-item]')?.value.trim() || '';
-  const evidence = (row.querySelector('[data-evidence-item]')?.value || '').split(',')
-    .map(x => x.trim()).filter(Boolean);
-  return {note, evidence};
-}
-
-async function updateTrafficChecklist(itemId, itemStatus, details = {}){
-  if (!curRun) return;
-  try {
-    const r = await fetch(`/api/runs/${curRun.run_id}/traffic/checklist/${encodeURIComponent(itemId)}`,
-      { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-        status:itemStatus, note: details.note || '', evidence: details.evidence || [],
-      }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || '更新失败');
-    $('#checklist').dataset.attempt = '';
-    await refreshAll();
-  } catch(e){ toast('操作记录保存失败: ' + e.message); }
 }
 
 function renderModules(modules){
@@ -982,6 +906,43 @@ function renderReport(){
     ${Object.entries(vc).map(([v,n]) => `<span class="badge ${v==='PASS'?'ok':v==='FAIL'?'fail':v==='NA'?'gray':v==='INCONCLUSIVE'?'warn':'info'}" style="font-size:14px;padding:6px 14px">${v} · ${n}</span>`).join('')}
     </div>`;
 
+  const ti = report.traffic_intelligence || {};
+  const tiInventory = ti.inventory || {};
+  const tiSummary = ti.summary || {};
+  if (ti.status === 'complete') {
+    const alignmentCounts = tiInventory.alignment_counts || {};
+    $('#trafficIntelSummary').innerHTML = `<div class="traffic-grid">
+      <div><div class="stat-row"><span class="k">分析后端</span><span class="v">${escapeHtml(ti.backend || '?')}</span></div>
+      <div class="stat-row"><span class="k">Flow</span><span class="v">${tiInventory.flow_count ?? 0}</span></div>
+      <div class="stat-row"><span class="k">端点</span><span class="v">${tiInventory.endpoint_count ?? 0}</span></div>
+      <div class="stat-row"><span class="k">DNS 关联</span><span class="v">${ti.dns_correlation_count ?? 0}</span></div></div>
+      <div><div class="stat-row"><span class="k">IXIT 声明</span><span class="v">${tiInventory.declaration_count ?? 0}</span></div>
+      <div class="stat-row"><span class="k">声明不一致</span><span class="v">${alignmentCounts.MISMATCH ?? 0}</span></div>
+      <div class="stat-row"><span class="k">未声明流量</span><span class="v">${alignmentCounts.UNDECLARED_OBSERVED ?? 0}</span></div>
+      <div class="stat-row"><span class="k">未知协议集群</span><span class="v">${tiInventory.unknown_cluster_count ?? 0}</span></div></div>
+    </div>`;
+    const findings = [
+      ...(ti.mismatches || []).map(x => ({kind:'声明不一致', ...x})),
+      ...(ti.undeclared_observed || []).map(x => ({kind:'未声明但已观察', ...x})),
+      ...(ti.not_observed || []).map(x => ({kind:'已声明但未观察', ...x})),
+    ];
+    $('#trafficIntelFindings').innerHTML = findings.length
+      ? `<table><tr><th>类别</th><th>声明</th><th>Flow</th><th>说明</th></tr>${findings.slice(0,100).map(x => `<tr>
+          <td>${escapeHtml(x.kind)}</td><td class="mono">${escapeHtml(x.declaration_id || '-')}</td>
+          <td>${(x.flow_ids || []).map(id => `<button class="clause-toggle ti-flow-link" type="button" data-flow-id="${escapeHtml(id)}">${escapeHtml(id)}</button>`).join('<br>') || '-'}</td>
+          <td>${escapeHtml(x.reason || '')}</td></tr>`).join('')}</table>`
+      : `<div class="empty">当前没有声明差异；加密分类：${escapeHtml(JSON.stringify(tiSummary.encryption_counts || {}))}</div>`;
+    document.querySelectorAll('#trafficIntelFindings .ti-flow-link').forEach(button => {
+      button.onclick = () => showTrafficFlow(button.dataset.flowId);
+    });
+    $('#btnLoadTrafficFlows').disabled = false;
+  } else {
+    $('#trafficIntelSummary').innerHTML = `<div class="empty">${ti.status === 'invalid' ? 'Bundle 校验失败：'+escapeHtml(ti.reason || '') : '尚未生成 Traffic Intelligence Bundle'}</div>`;
+    $('#trafficIntelFindings').innerHTML = '';
+    $('#trafficIntelFlows').innerHTML = '';
+    $('#btnLoadTrafficFlows').disabled = true;
+  }
+
   const audits = report.audit_summaries || [];
   $('#reportAudit').innerHTML = audits.length
     ? `<table><tr><th>模块</th><th>裁决</th><th>摘要</th><th>发现数</th></tr>` + audits.map(a => `
@@ -1040,6 +1001,39 @@ function renderReport(){
     : '<div class="empty">报告尚未生成（需管线完成 REPORT 阶段）</div>';
   document.querySelectorAll('#reportFiles .run-row').forEach(el => el.onclick = () => openArtifact(el.dataset.id, el.dataset.name));
 }
+
+async function loadTrafficFlows(offset=0){
+  if (!curRun) return;
+  const target = $('#trafficIntelFlows');
+  target.innerHTML = '<div class="empty">正在读取 Flow…</div>';
+  try {
+    const r = await fetch(`/api/runs/${curRun.run_id}/traffic-intelligence/flows?offset=${offset}&limit=50`);
+    const d = await r.json();
+    if (!r.ok) return target.innerHTML = `<div class="empty">读取失败：${escapeHtml(d.detail || '')}</div>`;
+    target.innerHTML = d.flows.length ? `<table><tr><th>方向</th><th>传输层</th><th>端点</th><th>协议</th><th>加密</th></tr>${d.flows.map(flow => `<tr class="ti-flow-row" data-flow-id="${escapeHtml(flow.flow_id)}">
+      <td>${escapeHtml(flow.direction_relative_to_dut || '?')}</td><td>${escapeHtml(flow.transport || '?')}</td>
+      <td class="mono">${escapeHtml(flow.src_ip+':'+flow.src_port)} → ${escapeHtml(flow.dst_ip+':'+flow.dst_port)}</td>
+      <td>${escapeHtml((flow.protocol_candidates || []).map(x => x.name).join(', ') || 'UNKNOWN')}</td>
+      <td>${escapeHtml((flow.encryption || {}).classification || 'UNKNOWN')}</td></tr>`).join('')}</table>
+      <div class="muted" style="margin-top:8px">显示 ${d.offset+1}–${d.offset+d.returned}${d.has_more ? '；仍有更多结果' : ''}，点击 Flow 查看逐维证据。</div>`
+      : '<div class="empty">没有 Flow</div>';
+    document.querySelectorAll('#trafficIntelFlows .ti-flow-row').forEach(row => {
+      row.onclick = () => showTrafficFlow(row.dataset.flowId);
+    });
+  } catch(e){ target.innerHTML = '<div class="empty">读取 Flow 失败</div>'; }
+}
+
+async function showTrafficFlow(flowId){
+  if (!curRun || !flowId) return;
+  const r = await fetch(`/api/runs/${curRun.run_id}/traffic-intelligence/flows/${encodeURIComponent(flowId)}`);
+  const d = await r.json();
+  if (!r.ok) return toast(d.detail || '读取 Flow 失败');
+  $('#artifactTitle').textContent = `Traffic Flow · ${flowId}`;
+  $('#artifactContent').textContent = JSON.stringify(d, null, 2);
+  $('#artifactDialog').showModal();
+}
+
+$('#btnLoadTrafficFlows').onclick = () => loadTrafficFlows(0);
 
 async function openArtifact(artifactId, name){
   if (!curRun) return;

@@ -52,6 +52,11 @@
       "bash": "/c/Program Files/Wireshark/tshark.exe",
       "desc": "tshark 命令行可执行文件 — 抓包 / pcap 解析 / 协议分析"
     },
+    "TOOL.EASYTSHARK_ANALYZER": {
+      "windows": "D:\\ETSI\\tools\\easytshark\\easytshark-analyzer.exe",
+      "bash": "/d/ETSI/tools/easytshark/easytshark-analyzer",
+      "desc": "可选 EasyTshark 无界面离线分析 Worker；实际路径只写入仓库外私有映射"
+    },
     "TOOL.WIRESHARK": {
       "windows": "C:\\Program Files\\Wireshark\\Wireshark.exe",
       "bash": null,
@@ -75,7 +80,7 @@
     "TOOL.PYTHON3": {
       "windows": "C:\\Python311\\python.exe",
       "bash": "/c/Python311/python.exe",
-      "desc": "Python 3.12 解释器 — 用于执行 sqlmap / dir_brute_force.py 等 Python 脚本"
+      "desc": "Python 3.11 解释器 — 用于执行 sqlmap / dir_brute_force.py 等 Python 脚本"
     },
 
     "CFG.XRAY": {

@@ -2,7 +2,7 @@
 """
 pcap_analyzer.py -- ETSI TS 103701 pcap 批量分析 (v2: 合并查询 + 并行)
 用法:
-  python pcap_analyzer.py <pcap_path> [--dut-ip 10.19.199.54] [--out-dir pcap_analysis]
+  python pcap_analyzer.py <pcap_path> --dut-ip <DUT_IP> [--out-dir pcap_analysis]
 
 输出: pcap_analysis/ 下 22 个结构化文件 (19 JSON + 3 TXT)
   索引: _index.json, _summary.txt
@@ -813,8 +813,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="ETSI pcap 批量分析")
     parser.add_argument("pcap", help="pcap 文件路径")
-    parser.add_argument("--dut-ip", default="10.19.199.54", help="DUT IP (默认 10.19.199.54)")
-    parser.add_argument("--test-ip", default="10.25.243.36", help="测试机 IP")
+    parser.add_argument("--dut-ip", required=True, help="DUT IP（必须显式提供）")
+    parser.add_argument("--test-ip", default=None, help="测试机 IP（省略时自动检测）")
     parser.add_argument("--out-dir", default=None, help="输出目录 (默认 pcap 同目录下的 pcap_analysis/)")
     parser.add_argument("--workers", default=6, type=int, help="并行线程数 (默认 6)")
 
@@ -825,7 +825,7 @@ if __name__ == "__main__":
         args.out_dir = os.path.join(pcap_dir, "pcap_analysis")
 
     # 自动检测测试机 IP
-    if args.test_ip == "10.25.243.36":
+    if args.test_ip is None:
         dut = args.dut_ip
         rows = run_tshark(args.pcap, "ip", ["ip.src"])
         counter = Counter()
@@ -836,5 +836,7 @@ if __name__ == "__main__":
             detected = counter.most_common(1)[0][0]
             args.test_ip = detected
             print(f"[*] 自动检测测试机 IP: {detected}")
+        else:
+            parser.error("无法从抓包自动检测测试机 IP；请显式提供 --test-ip")
 
     run_all(args.pcap, args.out_dir, args.dut_ip, args.test_ip, max_workers=args.workers)
